@@ -112,7 +112,10 @@ scripts/
   eval_ode_perceptual_v2_infinitetalk.py     # Stage 2a: decode + perceptual/lip/sync metrics (DRAFT)
   analyze_ode_trajectory_infinitetalk.py     # Stage 2b: latent straightness/velocity/x0-vs-GT (DRAFT)
   plotters_to_adapt/                         # Stage 2c: OmniAvatar plotters to repoint (TODO)
-reference/                                   # the OmniAvatar originals our code derives from
+reference/                                   # COMPLETE original OmniAvatar code (for cross-checking the port)
+  README.md                                  #   what to diff/verify against
+  omniavatar_analysis/                       #   original analysis scripts (our Stage-2 derives from these)
+  fastgen_generation/                        #   original ODE driver + OmniAvatarWan model + FastGen core
 data/recon_sample_names.txt                  # the 10 Hallo3 recon sample names
 examples/                                    # our smoke-generation video + decoded frames + 2 input clips
 docs/
