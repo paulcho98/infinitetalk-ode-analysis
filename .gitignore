@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pt
+*.npy
+# keep examples/ media; ignore any accidental large trajectory dumps
+ode_full_trajectories*/
+ode_analysis*/
