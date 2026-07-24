@@ -117,6 +117,7 @@ reference/                                   # COMPLETE original OmniAvatar code
   omniavatar_analysis/                       #   original analysis scripts (our Stage-2 derives from these)
   fastgen_generation/                        #   original ODE driver + OmniAvatarWan model + FastGen core
 data/recon_sample_names.txt                  # the 10 Hallo3 recon sample names
+data/recon_clips/<hash>.{mp4,wav}            # ALL 10 reference videos + audios (BUNDLED, 7.6MB) — inputs to run
 examples/                                    # our smoke-generation video + decoded frames + 2 input clips
 docs/
   status-and-todo.md                         # ← START HERE to continue the work
@@ -171,7 +172,7 @@ python scripts/analyze_ode_trajectory_infinitetalk.py \
   works end-to-end).
 - `frames/ode_x0_decoded_frame*.png` — a decoded `x0` from a real ODE trajectory (coherent face at 6
   steps — validates the x0 derivation).
-- `inputs/*.mp4|.wav` — **two Hallo3 recon clips** (reference video + audio) for local testing.
+- `inputs/*.mp4|.wav` — **two Hallo3 recon clips** for quick tests. **All 10** are bundled in `data/recon_clips/`.
   *Provenance:* these are from the Hallo3 validation set; keep private / obtain the full set from the
   dataset if redistributing.
 
@@ -186,6 +187,6 @@ python scripts/analyze_ode_trajectory_infinitetalk.py \
 | **MeiGen-AI/InfiniteTalk** | `huggingface.co/MeiGen-AI/InfiniteTalk` (audio-condition weights: `single/infinitetalk.safetensors`) |
 | **chinese-wav2vec2-base** | `huggingface.co/TencentGameMate/chinese-wav2vec2-base` (audio encoder) |
 | **Metrics models** | `eval_metrics/` on the original machine: `shape_predictor_68_face_landmarks.dat`, `checkpoints/auxiliary/syncnet_v2.model`, plus `lpips` pip pkg. SyncNet eval code from the `eval`/`syncnet_python` packages. |
-| **Hallo3 recon clips** | 10 samples in `data/recon_sample_names.txt`; video `Hallo3_validation/validation_set_for_benchmark/<hash>.mp4`, audio `Hallo3_validation/processed/audios/<hash>.wav` |
+| **Hallo3 recon clips** | BUNDLED in this repo at `data/recon_clips/<hash>.{mp4,wav}` (all 10). Point `--video_dir` and `--audio_dir` there |
 
 See `docs/environment.md` and `docs/data.md` for exact setup and the paths to re-point.

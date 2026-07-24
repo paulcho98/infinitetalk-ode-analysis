@@ -24,7 +24,7 @@ The canonical Hallo3 path recorded in `hallo3_metadata.csv`
 the `validation_set_for_benchmark` + `processed/audios` copies above are the live sources. If neither
 exists on the new machine, obtain the Hallo3 validation set and match by hash.
 
-Two example clips (video + audio) are bundled in `examples/inputs/` for local testing.
+**All 10 recon clips (video + audio) are BUNDLED at `data/recon_clips/<hash>.{mp4,wav}`** — point Stage-1's `--video_dir` and `--audio_dir` both there. (`examples/inputs/` keeps 2 as quick examples.)
 
 ## FORCE-SQUARE (critical)
 
