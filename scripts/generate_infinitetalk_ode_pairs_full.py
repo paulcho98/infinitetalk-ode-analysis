@@ -46,7 +46,7 @@ from wan.multitalk import (  # noqa: E402
     resize_and_centercrop,
 )
 from wan.utils.utils import extract_specific_frames  # noqa: E402
-from wan.utils.multitalk_utils import ASPECT_RATIO_627, ASPECT_RATIO_960  # noqa: E402
+# (ASPECT_RATIO buckets intentionally NOT imported: force-square hardcodes 640 in extract_ode_trajectory)
 # audio preprocessing helpers (same ones generate_infinitetalk.py uses)
 from generate_infinitetalk import custom_init, get_embedding, audio_prepare_single  # noqa: E402
 

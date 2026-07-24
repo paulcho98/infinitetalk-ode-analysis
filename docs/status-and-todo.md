@@ -36,8 +36,18 @@ first for the five load-bearing facts, then this.
 ## HOW TO PROCEED (ordered)
 
 ### 0. Re-point paths
-Every script has ABSOLUTE paths to the original machine (`/home/work/.local/...`). Grep and fix:
-`INFINITETALK_ROOT`, checkpoint dirs, `--video_dir`/`--audio_dir` (Hallo3), `METRICS_ROOT`, output roots.
+Repo-internal paths are now portable: the launcher derives `$REPO` from its own location and reads
+inputs from `data/recon_clips/` + `data/recon_sample_names.txt`; Stage-2 GT dirs default to
+`data/recon_clips/`. So on a fresh clone, `--video_dir`/`--audio_dir` and the Stage-2 GT dirs need NO edits.
+
+The EXTERNAL paths you MUST still edit:
+- `INFINITETALK_ROOT` (top of the Stage-1 driver and both Stage-2 scripts) -> your InfiniteTalk repo clone.
+- `IT=` (weights) and `PY=` (env python) in `run_infinitetalk_ode_sweep.sh`.
+- `METRICS_ROOT` in `eval_ode_perceptual_v2_infinitetalk.py` -> your `eval_metrics/` (shape_predictor + syncnet).
+- **SyncNet code**: the eval script imports `eval.syncnet.SyncNetEval` / `eval.syncnet_detect.SyncNetDetector`
+  (custom wrappers from the original machine / public `syncnet_python`). Put them on `PYTHONPATH`, or pass
+  `--skip_metrics sync` to skip Sync-C/D.
+- `--output_dir` / output root for each stage (the ~18GB trajectory dump).
 
 ### 1. Run the Stage-1 sweep (~8 h, 4 GPUs)
 ```bash

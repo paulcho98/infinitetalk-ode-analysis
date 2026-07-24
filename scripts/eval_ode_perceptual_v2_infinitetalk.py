@@ -117,8 +117,9 @@ DEFAULT_VAE_PATH = os.path.join(
 )
 
 # Ground-truth video + audio sources (Hallo3 validation set)
-GT_VIDEO_DIR = "/home/work/.local/Hallo3_validation/validation_set_for_benchmark"
-GT_AUDIO_DIR = "/home/work/.local/Hallo3_validation/processed/audios"
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GT_VIDEO_DIR = os.path.join(_REPO_ROOT, "data", "recon_clips")  # bundled recon clips (<hash>.mp4)
+GT_AUDIO_DIR = os.path.join(_REPO_ROOT, "data", "recon_clips")  # bundled recon clips (<hash>.wav)
 
 # Generated frame geometry
 FRAME_SIZE = 640  # decoded pixel resolution (640x640); latent is 80x80

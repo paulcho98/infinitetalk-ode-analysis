@@ -9,18 +9,18 @@
 # Output: $OUT/infinitetalk_t{T}_a{A}/<sample>/{step_NNN_xt.pt, step_NNN_x0.pt, ode_schedule.json, input_latents.pt}
 set -euo pipefail
 
-IT=/home/work/.local/InfiniteTalk/weights
-FASTGEN=/home/work/.local/hyunbin/FastGen
-PY=/home/work/.local/miniconda3/envs/infinitetalk/bin/python
+IT=/home/work/.local/InfiniteTalk/weights   # EDIT: InfiniteTalk weights dir on this machine
+REPO="$(cd "$(dirname "$0")/.." && pwd)"      # repo root (holds scripts/, data/)
+PY=/home/work/.local/miniconda3/envs/infinitetalk/bin/python   # EDIT: infinitetalk env python
 OUT=/home/work/.local/ode_full_trajectories_infinitetalk
-NAMES=$OUT/recon_sample_names.txt
-VID=/home/work/.local/Hallo3_validation/validation_set_for_benchmark
-AUD=/home/work/.local/Hallo3_validation/processed/audios
+NAMES="$REPO/data/recon_sample_names.txt"
+VID="$REPO/data/recon_clips"    # bundled recon clips (<hash>.mp4)
+AUD="$REPO/data/recon_clips"    # bundled recon clips (<hash>.wav)
 CONFIGS="5.0:4.0,5.0:1.0,5.0:2.0,5.0:6.0,1.0:1.0,2.5:2.0,7.5:6.0"
 STEPS=${1:-50}
 
 mkdir -p "$OUT"
-cd "$FASTGEN"
+cd "$REPO"
 echo "Configs: $CONFIGS | steps=$STEPS | out=$OUT"
 
 for SHARD in 0 1 2 3; do

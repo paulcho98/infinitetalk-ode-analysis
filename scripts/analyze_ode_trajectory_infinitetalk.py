@@ -56,7 +56,7 @@ import torch.nn.functional as F
 DEFAULT_INFINITETALK_ROOT = "/home/work/.local/InfiniteTalk"
 DEFAULT_VAE_PTH = "/home/work/.local/InfiniteTalk/weights/Wan2.1-I2V-14B-480P/Wan2.1_VAE.pth"
 DEFAULT_SHAPE_PREDICTOR = "/home/work/.local/eval_metrics/shape_predictor_68_face_landmarks.dat"
-DEFAULT_GT_VIDEO_DIR = "/home/work/.local/Hallo3_validation/validation_set_for_benchmark"
+DEFAULT_GT_VIDEO_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "recon_clips")  # bundled recon clips
 
 FRAME_SIZE = 640          # pixel frame is 640x640
 LATENT_H = LATENT_W = 80  # latent grid is 80x80 (640 / 8)
@@ -194,7 +194,13 @@ def reference_frame_from_gt_video(args, sample_name: str) -> np.ndarray:
     if not ok:
         raise RuntimeError(f"Could not read first frame of GT video: {gt_path}")
     frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-    frame_rgb = cv2.resize(frame_rgb, (FRAME_SIZE, FRAME_SIZE), interpolation=cv2.INTER_AREA)
+    # Match resize_and_centercrop: cover-scale (shorter side -> FRAME_SIZE) then center-crop.
+    h0, w0 = frame_rgb.shape[:2]
+    scale = FRAME_SIZE / min(h0, w0)
+    nh, nw = int(np.ceil(scale * h0)), int(np.ceil(scale * w0))
+    frame_rgb = cv2.resize(frame_rgb, (nw, nh), interpolation=cv2.INTER_AREA)
+    top, left = (nh - FRAME_SIZE) // 2, (nw - FRAME_SIZE) // 2
+    frame_rgb = frame_rgb[top:top + FRAME_SIZE, left:left + FRAME_SIZE]
     return frame_rgb.astype(np.uint8)
 
 
