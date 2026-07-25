@@ -398,14 +398,24 @@ def analyze_gt_similarity(
         for metric in ["mse", "cosine"]
     }
 
+    # True trajectory velocity ‖x0(t) - x0(t-1)‖²: how far the prediction MOVES per step.
+    # Distinct from `delta_mse` below, which measures how much closer to GT it GETS.
+    for region in REGIONS:
+        metrics[f"{region}_velocity"] = np.zeros(num_steps)
+
     for sample_name in samples:
         gt = get_gt(sample_name)
         mouth_mask = masks[sample_name]
+        prev_x0 = None
         for step_i in range(num_steps):
             x0 = load_tensor(traj_dir, sample_name, f"step_{step_i:03d}_x0.pt")
             for region in REGIONS:
                 metrics[f"{region}_mse"][step_i] += compute_mse(x0, gt, mouth_mask, region)
                 metrics[f"{region}_cosine"][step_i] += compute_cosine_sim(x0, gt, mouth_mask, region)
+                # step 0 has no predecessor; its velocity stays 0 and is skipped when plotting
+                if prev_x0 is not None:
+                    metrics[f"{region}_velocity"][step_i] += compute_mse(x0, prev_x0, mouth_mask, region)
+            prev_x0 = x0
 
     n = len(samples)
     for k in metrics:
@@ -419,10 +429,12 @@ def analyze_gt_similarity(
         delta[1:] = cosine_vals[1:] - cosine_vals[:-1]
         metrics[f"{region}_delta_cosine"] = delta
 
+        # SIGNED per-step improvement in x0→GT MSE: positive = moved closer to GT,
+        # negative = moved away. NOT a step size / velocity, and NOT log-plottable.
         mse_vals = metrics[f"{region}_mse"]
         delta_mse = np.zeros(num_steps)
         delta_mse[0] = 0.0
-        delta_mse[1:] = mse_vals[:-1] - mse_vals[1:]  # MSE decrease = improvement
+        delta_mse[1:] = mse_vals[:-1] - mse_vals[1:]
         metrics[f"{region}_delta_mse"] = delta_mse
 
     return metrics

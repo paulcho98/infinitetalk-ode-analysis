@@ -38,18 +38,35 @@ Terminal (final-step) mouth-region quality over the (text, audio) grid:
 (compare `(5,1)`=5.81 to `(1,1)`=5.42) barely moves sync; audio is the lever. See
 `figures/cfg_grid_heatmaps_mouth.png` (Sync-C panel).
 
-**The cost is pixel-fidelity.** As audio guidance rises, terminal SSIM drops (0.513→0.476) and, along
-the trajectory, the early steps are actually *closer* to the GT in pixel/SSIM terms than the late
-steps (SSIM **0.62→0.49**, pixel-MSE **0.014→0.024** over the 50 steps). This is the classic
-**perception–distortion tradeoff**: the early blurry `x0` is a low-variance estimate near the GT mean,
-and as the ODE injects realistic, audio-driven detail the frame gains perceptual quality
-(LPIPS **0.53→0.34**) and lip-sync (Sync-C **~1→~7**) while deviating from the exact GT pixels.
-LPIPS improving confirms the frames get genuinely *better*, not worse — pixel metrics simply penalize
-the (correct) generative detail. Higher CFG amplifies both sides of the tradeoff.
+**The cost is pixel-fidelity.** As audio guidance rises, terminal SSIM drops (0.513→0.476). Along the
+trajectory, SSIM *decreases* from early to late steps at **every** config (e.g. 0.62→0.51 at `(1,1)`):
+the early blurry `x0` is a low-variance estimate near the GT mean, and the ODE then adds detail that
+pixel metrics penalize. This is the classic **perception–distortion tradeoff** — LPIPS improves over the
+same steps (**0.53→0.34**) and lip-sync rises (Sync-C **~1→~7**), confirming the frames get genuinely
+*better*, not worse.
+
+**But the pixel-MSE direction flips with guidance** — it is *not* a universal "early steps are closer to
+GT" story, and the earlier draft of this doc overstated it. Mouth pixel-MSE, first→last step:
+
+| config | mouth pixel-MSE, step 0 → 49 | direction |
+|---|---|---|
+| (1,1) no-CFG | 0.0141 → 0.0237 | drifts **away** from GT |
+| (2.5,2) | 0.0151 → 0.0254 | away |
+| (5,2) | 0.0178 → 0.0259 | away |
+| (5,4) default | 0.0256 → 0.0273 | ~flat |
+| (5,6) | 0.0373 → 0.0280 | **toward** GT |
+| (7.5,6) | 0.0423 → 0.0288 | **toward** GT |
+
+Low guidance starts near the GT mean and drifts off it as detail is added; high guidance starts far
+(it commits to generated content immediately) and *converges back*. All configs land in a narrow
+terminal band (0.024–0.029) regardless of where they started. This is the pixel-space counterpart of
+the cosine reconvergence in Stage 2b below — the same phenomenon measured two ways.
 
 Figures:
 - `figures/cfg_grid_heatmaps_mouth.png` — 2-D (text×audio) heatmaps of terminal SSIM / LPIPS / Sync-C.
-- `figures/cfg_families_pareto_ssim_mouth.png` — family sweeps + quality-vs-guidance Pareto.
+- `figures/cfg_families_pareto_ssim_mouth.png` — family sweeps + the **perception–distortion frontier**
+  (SSIM vs Sync-C, with the GT Sync-C line). Note `(5,1)` sits strictly *inside* the frontier: it is
+  dominated by `(1,1)` on SSIM and by everything else on sync, i.e. text-only guidance is wasted budget.
 - `figures/ode_curves_reference.png` — per-step MSE/SSIM/LPIPS/LMD (mouth+full), 7 configs overlaid.
 - `figures/ode_curves_noref.png` — per-step sharpness / Sync-D / Sync-C with GT baselines.
 - `figures/terminal_values.csv` — full terminal table (all metrics × regions × configs).
@@ -88,8 +105,18 @@ This is the geometric counterpart of the perception–distortion tradeoff: guida
 near-the-GT-mean early path for a more curved, detail-committing one.
 
 Figures:
-- `figures/trajectory/trajectory_geometry_overlay.png` — x0→GT cosine + trajectory velocity, 7 configs.
-- per-config `gt_similarity.png` / `audio_ablation.png` / `summary.png` under the analysis dir.
+- `figures/trajectory/trajectory_geometry_overlay.png` — x0→GT cosine + per-step MSE improvement,
+  7 configs. Regenerate with `scripts/plot_trajectory_geometry_overlay.py`.
+- per-config `gt_similarity.png` / `audio_ablation.png` / `summary.png` under `figures/per_config/`.
+
+> **Corrected in this revision.** The overlay's second panel was previously labelled
+> "trajectory velocity ‖x0(t)−x0(t−1)‖²" and drawn on a log axis. The quantity plotted was actually
+> `delta_mse` = `MSE(t−1) − MSE(t)`, a **signed** per-step *improvement*, not a step size — so the log
+> axis silently dropped every step where the prediction moved away from GT (most late steps at low
+> CFG). It is now correctly labelled and drawn on a symlog axis with a zero line, so the negative
+> excursions are visible. A genuine `{region}_velocity` = ‖x0(t)−x0(t−1)‖² has been added to
+> `analyze_ode_trajectory_infinitetalk.py`; the JSONs in `data/` predate it, so re-running Stage-2b
+> is needed to populate the true-velocity panel (the plotter adds it automatically when present).
 
 ---
 

@@ -45,7 +45,11 @@ METRIC_INFO = {
 
 
 def cfg_dir(analysis_root, T, A):
-    return os.path.join(analysis_root, f"infinitetalk_t{T}_a{A}", "perceptual_v2", "metrics.csv")
+    """Per-config metrics CSV. Accepts the live Stage-2a layout or the committed results/data one."""
+    live = os.path.join(analysis_root, f"infinitetalk_t{T}_a{A}", "perceptual_v2", "metrics.csv")
+    if os.path.exists(live):
+        return live
+    return os.path.join(analysis_root, f"perceptual_t{T}_a{A}.csv")
 
 
 def terminal_value(csv_path, metric, region):
@@ -67,6 +71,21 @@ def collect(analysis_root, metric, region):
     for (T, A) in CONFIGS:
         vals[(T, A)] = terminal_value(cfg_dir(analysis_root, T, A), metric, region)
     return vals
+
+
+def gt_baseline(analysis_root, metric, region):
+    """Mean GT-baseline value (the step=-1 rows), averaged over configs. None if absent."""
+    seen = []
+    for (T, A) in CONFIGS:
+        p = cfg_dir(analysis_root, T, A)
+        if not os.path.exists(p):
+            continue
+        df = pd.read_csv(p)
+        sub = df[(pd.to_numeric(df["step"], errors="coerce") == -1)
+                 & (df["metric"] == metric) & (df["region"] == region)]
+        if not sub.empty:
+            seen.append(sub["value"].astype(float).mean())
+    return float(np.mean(seen)) if seen else None
 
 
 def main():
@@ -127,17 +146,33 @@ def main():
     axL.set_xlabel("audio guidance"); axL.set_ylabel(pretty)
     axL.set_title(f"{pretty} vs audio guidance"); axL.grid(True, alpha=0.3); axL.legend()
 
-    # Pareto: quality vs total guidance magnitude sqrt(T^2+A^2)
-    for (T, A), v in vals.items():
-        if v is None:
-            continue
-        mag = float(np.hypot(T, A))
-        axR.scatter(mag, v, s=60)
-        axR.annotate(f"t{T:g}a{A:g}", (mag, v), fontsize=8,
+    # TRUE perception-distortion frontier: distortion (this metric) vs lip-sync (Sync-C).
+    # These are the two objectives guidance actually trades off; plotting quality against
+    # guidance magnitude only re-states that quality falls with guidance, which is not a Pareto view.
+    sync = collect(args.analysis_root, "sync_c", args.region)
+    gt_sync = gt_baseline(args.analysis_root, "sync_c", args.region)
+    pts = [(sync.get((T, A)), v, (T, A)) for (T, A), v in vals.items()
+           if v is not None and sync.get((T, A)) is not None]
+    for sc, v, (T, A) in pts:
+        axR.scatter(sc, v, s=70, zorder=3)
+        axR.annotate(f"t{T:g}a{A:g}", (sc, v), fontsize=8,
                      textcoords="offset points", xytext=(4, 4))
-    axR.set_xlabel("guidance magnitude  sqrt(text^2+audio^2)")
+    # frontier: non-dominated set (max Sync-C, and max/min `metric` per `lower`)
+    front = []
+    for sc, v, ta in sorted(pts, key=lambda p: -p[0]):
+        if not front or (v < front[-1][1] if lower else v > front[-1][1]):
+            front.append((sc, v, ta))
+    if len(front) > 1:
+        axR.plot([p[0] for p in front], [p[1] for p in front], "--", color="gray",
+                 lw=1.5, zorder=2, label="Pareto frontier")
+        axR.legend(fontsize=8)
+    if gt_sync is not None:
+        axR.axvline(gt_sync, color="k", ls=":", lw=1.5, alpha=0.7)
+        axR.annotate(f"GT Sync-C {gt_sync:.2f}", (gt_sync, axR.get_ylim()[1]), fontsize=8,
+                     rotation=90, va="top", ha="right", color="k")
+    axR.set_xlabel("Sync-C (higher = better lip-sync)")
     axR.set_ylabel(pretty + ("  (lower=better)" if lower else "  (higher=better)"))
-    axR.set_title("Quality vs guidance (Pareto)"); axR.grid(True, alpha=0.3)
+    axR.set_title("Perception-distortion tradeoff"); axR.grid(True, alpha=0.3)
     plt.tight_layout()
     p2 = os.path.join(args.output_dir, f"cfg_families_pareto_{metric}_{args.region}.png")
     plt.savefig(p2, dpi=150); plt.close()
