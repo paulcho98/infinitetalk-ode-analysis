@@ -17,16 +17,27 @@ can be finished on another machine (with Claude Code).
 | Piece | State |
 |---|---|
 | Env + checkpoints | ✅ working (`infinitetalk` conda env; see `docs/environment.md`) |
-| **Stage 1 — trajectory generation** (`scripts/generate_infinitetalk_ode_pairs_full.py`) | ✅ **written + validated** (decodes to coherent faces; uniform `[16,21,80,80]` latents) |
-| Stage 1 launcher (`scripts/run_infinitetalk_ode_sweep.sh`) | ✅ works; **full sweep NOT yet completed** (killed to free GPUs; ~8 h run) |
-| **Stage 2a — perceptual metric engine** (`scripts/eval_ode_perceptual_v2_infinitetalk.py`) | 🟡 drafted; imports OK; **Phase-1 decode not yet run on real data** |
-| **Stage 2b — latent trajectory analysis** (`scripts/analyze_ode_trajectory_infinitetalk.py`) | 🟡 drafted; mask-derivation + VAE paths validated; **full run pending square data** |
-| **Stage 2c — plotters** (`scripts/plotters_to_adapt/`) | 🔴 **not started** — need config-list repoint (see audit) |
-| New **2-D CFG heatmap** view | 🔴 not started (build fresh) |
+| **Stage 1 — trajectory generation** (`scripts/generate_infinitetalk_ode_pairs_full.py`) | ✅ **complete** — 7-config sweep, 70 trajectories, ~11 h on 8×A100 |
+| Stage 1 launcher (`scripts/run_infinitetalk_ode_sweep_8gpu.sh`) | ✅ complete (job-sharded 8-GPU; `run_infinitetalk_ode_sweep.sh` is the older 4-GPU variant) |
+| **Stage 2a — perceptual metric engine** (`scripts/eval_ode_perceptual_v2_infinitetalk.py`) | ✅ **complete** — all 7 configs → `results/data/perceptual_*.csv` |
+| **Stage 2b — latent trajectory analysis** (`scripts/analyze_ode_trajectory_infinitetalk.py`) | ✅ run for all 7 → `results/data/geometry_*.json` — ⚠️ **needs a re-run**, see below |
+| **Stage 2c — plotters** | ✅ complete — per-step curves, 2-D heatmaps, perception–distortion frontier, per-config, default-vs-baseline |
+| New **2-D CFG heatmap** view | ✅ `results/figures/cfg_grid_heatmaps_mouth.png` |
+| **Euler-jump factorial** (`scripts/generate_infinitetalk_euler_jump.py`) | 🔴 **ported, NEVER RUN** — syntax-checked only; see `docs/euler-jump-experiment.md` |
+| Cross-model comparison vs OmniAvatar | 🔴 not started (original TODO step 6) |
 
-**Nothing has produced final metrics/figures yet.** The generation driver is validated on single
-samples; the analysis scripts are drafted and partially validated; the full sweep + full analysis
-have not been run to completion.
+**Findings + figures are in `results/`** — start with `results/findings.md`.
+
+### ⚠️ Outstanding before trusting the Stage-2b geometry
+The committed `results/data/geometry_*.json` and `results/figures/per_config/` predate two fixes to
+`analyze_ode_trajectory_infinitetalk.py`, so **Stage 2b should be re-run**:
+
+1. a genuine `{region}_velocity` = ‖x0(t)−x0(t−1)‖² was added — the old overlay mislabeled the
+   *signed* `delta_mse` as velocity and log-plotted it, silently dropping every negative step;
+2. `delta_cosine[0]` was seeded with an *absolute* cosine instead of 0, which dominated the Δ-cosine
+   bar panels and always won the "top-5 Δ-cosine steps" ranking.
+
+The perceptual CSVs (`results/data/perceptual_*.csv`) are **unaffected** by both.
 
 ---
 
@@ -107,11 +118,28 @@ Naming: `infinitetalk_t{T}_a{A}`. Two families sharing the audio axis {1,2,4,6}:
 
 ```
 scripts/
-  generate_infinitetalk_ode_pairs_full.py   # Stage 1: the ODE-trajectory driver (VALIDATED)
-  run_infinitetalk_ode_sweep.sh              # Stage 1: 4-GPU launcher for the 7-config sweep
-  eval_ode_perceptual_v2_infinitetalk.py     # Stage 2a: decode + perceptual/lip/sync metrics (DRAFT)
-  analyze_ode_trajectory_infinitetalk.py     # Stage 2b: latent straightness/velocity/x0-vs-GT (DRAFT)
-  plotters_to_adapt/                         # Stage 2c: OmniAvatar plotters to repoint (TODO)
+  generate_infinitetalk_ode_pairs_full.py   # Stage 1: the ODE-trajectory driver (COMPLETE)
+  run_infinitetalk_ode_sweep_8gpu.sh         # Stage 1: 8-GPU job-sharded launcher (the one used)
+  run_infinitetalk_ode_sweep.sh              # Stage 1: older 4-GPU sample-sharded launcher
+  eval_ode_perceptual_v2_infinitetalk.py     # Stage 2a: decode + perceptual/lip/sync metrics
+  analyze_ode_trajectory_infinitetalk.py     # Stage 2b: latent geometry / velocity / x0-vs-GT
+  run_stage2_infinitetalk.sh                 # Stage 2 orchestration (2a + 2b per config)
+  run_stage2a_metrics_sharded.sh             # Stage 2a metrics, 35-way sharded across 8 GPUs
+  run_stage2b.sh                             # Stage 2b across all 7 configs
+  plot_ode_curves_infinitetalk.py            # Stage 2c: per-step curves, 7 configs overlaid
+  plot_cfg_grid_infinitetalk.py              # Stage 2c: 2-D t×a heatmaps + perception–distortion frontier
+  plot_trajectory_geometry_overlay.py        # Stage 2c: geometry overlay (regenerates results/figures/trajectory/)
+  plot_default_vs_baseline.py                # Stage 2c: default-vs-ablation, 2 lines/panel, mouth region
+  generate_infinitetalk_euler_jump.py        # Euler-jump straightness probe (PORTED, NEVER RUN)
+  run_infinitetalk_euler_jump.sh             #   ↳ 7 factorial cells across 8 GPUs
+  run_stage2_euler_jump.sh                   #   ↳ metrics + geometry over those cells
+  plot_euler_jump_factorial.py               #   ↳ per-factorial figures + terminal CSV
+  plotters_to_adapt/                         # original OmniAvatar plotters (reference only)
+results/                                     # ← THE OUTPUT: findings, figures, raw metrics
+  findings.md                                #   written analysis — START HERE for results
+  data/perceptual_t{T}_a{A}.csv              #   per-step metrics, 10 samples × 50 steps × 7 configs
+  data/geometry_t{T}_a{A}.json               #   Stage-2b latent geometry (see re-run caveat above)
+  figures/                                   #   curves, heatmaps, frontier, per_config/, compare_default/
 reference/                                   # COMPLETE original OmniAvatar code (for cross-checking the port)
   README.md                                  #   what to diff/verify against
   omniavatar_analysis/                       #   original analysis scripts (our Stage-2 derives from these)
@@ -121,6 +149,7 @@ data/recon_clips/<hash>.{mp4,wav}            # ALL 10 reference videos + audios 
 examples/                                    # our smoke-generation video + decoded frames + 2 input clips
 docs/
   status-and-todo.md                         # ← START HERE to continue the work
+  euler-jump-experiment.md                   # the ported straightness factorial: design + how to run
   environment.md                             # conda env, dep pins, gotchas, checkpoint download
   data.md                                    # Hallo3 sample sources, paths, force-square
   stage2-audit.md                            # per-script portability classification for 2c
@@ -134,12 +163,14 @@ docs/
 
 Prereqs (see `docs/environment.md` for details): the **InfiniteTalk repo** on `PYTHONPATH`, its
 **weights** downloaded, the **`infinitetalk` conda env**, the **metrics models** (`eval_metrics/`), and
-the **Hallo3 recon clips**. All paths in the scripts are currently absolute to the original machine and
-must be re-pointed.
+the **Hallo3 recon clips**. Repo-internal paths are portable (the launchers derive `$REPO` from their
+own location); the launchers' **external** paths — `INFINITETALK_ROOT`, `METRICS_ROOT`, weights, and
+the venv `PY` — are absolute and are currently pointed at the **sweep machine**. Re-point them if you
+run anywhere else; all are overridable by env var.
 
-**Stage 1 — generate trajectories (~8 h, 4 GPUs):**
+**Stage 1 — generate trajectories (~11 h, 8 GPUs):**
 ```bash
-bash scripts/run_infinitetalk_ode_sweep.sh 50   # 50 = num steps
+bash scripts/run_infinitetalk_ode_sweep_8gpu.sh 50   # 50 = num steps
 # → <OUT>/infinitetalk_t{T}_a{A}/<sample>/{step_NNN_xt.pt, step_NNN_x0.pt, ode_schedule.json, input_latents.pt}
 ```
 
@@ -161,8 +192,28 @@ python scripts/analyze_ode_trajectory_infinitetalk.py \
   --mouth_mask_cache <cache> --shape_predictor <eval_metrics>/shape_predictor_68_face_landmarks.dat
 ```
 
-**Stage 2c — plots:** not written yet. See `docs/stage2-audit.md` — 6 plotters are config-list repoints
-(PARAM), and a new 2-D `t×a` heatmap/Pareto view should be built fresh.
+**Stage 2c — plots** (all read either a live analysis root or the committed `results/data/`):
+```bash
+python scripts/plot_ode_curves_infinitetalk.py       --analysis_root <root> --output_dir results/figures
+python scripts/plot_cfg_grid_infinitetalk.py         --analysis_root results/data --output_dir results/figures
+python scripts/plot_trajectory_geometry_overlay.py   --geometry_dir  results/data --output_dir results/figures/trajectory
+python scripts/plot_default_vs_baseline.py           # default vs (t5,a1) and vs (1,1), mouth region
+```
+
+**Euler-jump factorial — PORTED BUT NEVER RUN.** Full design in `docs/euler-jump-experiment.md`.
+Measures ODE straightness by jumping from step 0 to each noise level and re-predicting. Two
+overlapping 2×2s over (step-0 CFG) × (teacher CFG) with `on=(5,4)`, `noaudio=(5,1)`, `nocfg=(1,1)`
+— 7 distinct cells. Requires the Stage-1 trajectories for those three configs (all in the sweep).
+```bash
+bash scripts/run_infinitetalk_euler_jump.sh 50   # generate, 7 cells across 8 GPUs
+bash scripts/run_stage2_euler_jump.sh all        # metrics + geometry (same Stage-2 stack)
+python scripts/plot_euler_jump_factorial.py --euler_analysis_root ode_analysis_euler_jump \
+    --sequential_analysis_root ode_analysis_infinitetalk --output_dir results/figures/euler_jump
+```
+**Smoke-test one cell first:** `bash scripts/run_stage2_euler_jump.sh euler_on_on 0`. Its step 0
+should land very close to the sequential trajectory's — divergence means the conditioning or
+schedule doesn't match. This also exercises the `prepare_conditioning()` / `predict_noise()`
+refactor of the Stage-1 driver, which is shared by both paths and has not been run against the model.
 
 ---
 
