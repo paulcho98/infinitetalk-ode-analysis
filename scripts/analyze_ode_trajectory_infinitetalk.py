@@ -425,7 +425,10 @@ def analyze_gt_similarity(
     for region in REGIONS:
         cosine_vals = metrics[f"{region}_cosine"]
         delta = np.zeros(num_steps)
-        delta[0] = cosine_vals[0]
+        # step 0 has no predecessor → 0, matching delta_mse. (Previously seeded with the
+        # ABSOLUTE cosine, which dwarfed every real delta in the bar plots and always won
+        # the "top-5 Δ-cosine steps" ranking.)
+        delta[0] = 0.0
         delta[1:] = cosine_vals[1:] - cosine_vals[:-1]
         metrics[f"{region}_delta_cosine"] = delta
 
