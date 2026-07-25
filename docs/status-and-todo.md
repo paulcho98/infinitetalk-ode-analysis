@@ -7,11 +7,13 @@ first for the five load-bearing facts, then this.
 > Stage-2c plotters all completed; see `results/findings.md` + `results/figures/`. What remains from
 > the original plan is **step 6 (the OmniAvatar cross-model comparison)**, plus two NEW items:
 >
-> - **Euler-jump factorial** (`docs/euler-jump-experiment.md`) — ported, **never run**. Code is
->   syntax-checked only; smoke-test one cell before the full sweep.
+> - **← CURRENT PRIORITY: Euler-jump factorial** (`docs/euler-jump-experiment.md`) — ported,
+>   **never run**. Code is syntax-checked only; smoke-test `euler_on_on` before the full sweep.
 > - **Re-run Stage 2b** to pick up the true `{region}_velocity` metric and the `delta_cosine[0]`
 >   fix (see the "Corrected in this revision" note in `results/findings.md`). The committed
->   geometry JSONs and per-config figures predate both.
+>   geometry JSONs and per-config figures predate both. **DEPRIORITIZED** behind the Euler-jump
+>   work — Stage 2b is correspondingly off by default in `run_stage2_euler_jump.sh` (`RUN_2B=1`
+>   enables it). The perceptual CSVs are unaffected by either fix.
 
 ## What has been done and VALIDATED
 

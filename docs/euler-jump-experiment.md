@@ -69,7 +69,7 @@ are missing.
 # 1. generate — 7 cells, one per GPU
 bash scripts/run_infinitetalk_euler_jump.sh 50
 
-# 2. metrics + geometry (same Stage-2 stack; output is trajectory-shaped)
+# 2. straightness + Stage 2a  (Stage 2b is SKIPPED by default — see below)
 bash scripts/run_stage2_euler_jump.sh all
 
 # 3. figures
@@ -78,6 +78,36 @@ python scripts/plot_euler_jump_factorial.py \
     --sequential_analysis_root ode_analysis_infinitetalk \
     --output_dir results/figures/euler_jump
 ```
+
+### The straightness number (the actual point)
+
+The direct curvature measurement is **‖x0_euler(t) − x0_sequential(t)‖ at the same step** — if the
+path were straight, one jump from step 0 would reproduce the sequential result and the gap would be
+zero everywhere. Neither Stage 2a nor Stage 2b computes this: 2a compares against GT *pixels*, 2b
+against the GT *latent*. Both answer "how good is it", not "how far did the jump miss".
+
+`scripts/measure_euler_straightness.py` fills that gap, and `run_stage2_euler_jump.sh` runs it first
+for every cell. Each cell is compared against the sequential trajectory whose CFG matches its
+**teacher** leg, so the only difference is *how the state was reached*:
+
+| cell | compared against |
+|---|---|
+| `euler_*_on` | `infinitetalk_t5.0_a4.0` |
+| `euler_*_noaudio` | `infinitetalk_t5.0_a1.0` |
+| `euler_*_nocfg` | `infinitetalk_t1.0_a1.0` |
+
+It reports `abs_l2`, `mse` and `rel_l2` (scale-free — the headline number) per step, for `full` and
+`mouth`. It only reads the saved `x0` tensors: no VAE, no GT, no model, no dlib (mouth masks come
+from the Stage-2b cache if present, else full-region only). Seconds per cell, and it does **not**
+depend on the Stage-2b re-run.
+
+### Stage 2b is off by default
+
+`RUN_2B=1 bash scripts/run_stage2_euler_jump.sh all` enables it. It is skipped because it is the
+expensive leg (VAE-encodes the GT clip per sample) and measures distance-to-GT, which is secondary
+here to distance-to-sequential. The committed sequential geometry JSONs also still predate the
+velocity / `delta_cosine[0]` fixes, so 2b output needs its own re-run before it is trustworthy —
+tracked in `status-and-todo.md`, deliberately deprioritized behind this experiment.
 
 Validate ONE cell first:
 

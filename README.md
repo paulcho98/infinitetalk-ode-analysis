@@ -132,7 +132,8 @@ scripts/
   plot_default_vs_baseline.py                # Stage 2c: default-vs-ablation, 2 lines/panel, mouth region
   generate_infinitetalk_euler_jump.py        # Euler-jump straightness probe (PORTED, NEVER RUN)
   run_infinitetalk_euler_jump.sh             #   ↳ 7 factorial cells across 8 GPUs
-  run_stage2_euler_jump.sh                   #   ↳ metrics + geometry over those cells
+  run_stage2_euler_jump.sh                   #   ↳ straightness + Stage 2a (2b opt-in via RUN_2B=1)
+  measure_euler_straightness.py              #   ↳ ‖x0_euler − x0_seq‖ per step — THE curvature number
   plot_euler_jump_factorial.py               #   ↳ per-factorial figures + terminal CSV
   plotters_to_adapt/                         # original OmniAvatar plotters (reference only)
 results/                                     # ← THE OUTPUT: findings, figures, raw metrics
@@ -206,10 +207,13 @@ overlapping 2×2s over (step-0 CFG) × (teacher CFG) with `on=(5,4)`, `noaudio=(
 — 7 distinct cells. Requires the Stage-1 trajectories for those three configs (all in the sweep).
 ```bash
 bash scripts/run_infinitetalk_euler_jump.sh 50   # generate, 7 cells across 8 GPUs
-bash scripts/run_stage2_euler_jump.sh all        # metrics + geometry (same Stage-2 stack)
+bash scripts/run_stage2_euler_jump.sh all        # straightness + Stage 2a (2b off; RUN_2B=1 to enable)
 python scripts/plot_euler_jump_factorial.py --euler_analysis_root ode_analysis_euler_jump \
     --sequential_analysis_root ode_analysis_infinitetalk --output_dir results/figures/euler_jump
 ```
+The headline curvature number is `‖x0_euler − x0_sequential‖` per step, from
+`scripts/measure_euler_straightness.py` (run automatically per cell). It reads only the saved `x0`
+tensors — no VAE/GT/model — so it takes seconds and does **not** depend on the Stage-2b re-run.
 **Smoke-test one cell first:** `bash scripts/run_stage2_euler_jump.sh euler_on_on 0`. Its step 0
 should land very close to the sequential trajectory's — divergence means the conditioning or
 schedule doesn't match. This also exercises the `prepare_conditioning()` / `predict_noise()`
