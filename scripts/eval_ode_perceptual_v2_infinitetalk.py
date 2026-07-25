@@ -111,7 +111,10 @@ import torch
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # InfiniteTalk repo (for wan.modules.vae in Phase 1)
-INFINITETALK_ROOT = "/home/work/.local/InfiniteTalk"
+INFINITETALK_ROOT = os.environ.get(
+    "INFINITETALK_ROOT",
+    "/data/karlo-research_715/workspace/kinemaar/paul/AR_diffusion/reference_FastGen_InfiniteTalk/InfiniteTalk",
+)
 DEFAULT_VAE_PATH = os.path.join(
     INFINITETALK_ROOT, "weights/Wan2.1-I2V-14B-480P/Wan2.1_VAE.pth"
 )
@@ -125,7 +128,9 @@ GT_AUDIO_DIR = os.path.join(_REPO_ROOT, "data", "recon_clips")  # bundled recon 
 FRAME_SIZE = 640  # decoded pixel resolution (640x640); latent is 80x80
 
 # Metrics tools paths
-METRICS_ROOT = "/home/work/.local/eval_metrics"
+METRICS_ROOT = os.environ.get(
+    "METRICS_ROOT", "/data/karlo-research_715/workspace/kinemaar/paul/eval_metrics"
+)
 SHAPE_PREDICTOR = os.path.join(METRICS_ROOT, "shape_predictor_68_face_landmarks.dat")
 SYNCNET_MODEL = os.path.join(METRICS_ROOT, "checkpoints/auxiliary/syncnet_v2.model")
 

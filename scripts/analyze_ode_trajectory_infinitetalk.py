@@ -53,9 +53,15 @@ import torch.nn.functional as F
 # Defaults / constants
 # ─────────────────────────────────────────────────────────────────────────────
 
-DEFAULT_INFINITETALK_ROOT = "/home/work/.local/InfiniteTalk"
-DEFAULT_VAE_PTH = "/home/work/.local/InfiniteTalk/weights/Wan2.1-I2V-14B-480P/Wan2.1_VAE.pth"
-DEFAULT_SHAPE_PREDICTOR = "/home/work/.local/eval_metrics/shape_predictor_68_face_landmarks.dat"
+DEFAULT_INFINITETALK_ROOT = os.environ.get(
+    "INFINITETALK_ROOT",
+    "/data/karlo-research_715/workspace/kinemaar/paul/AR_diffusion/reference_FastGen_InfiniteTalk/InfiniteTalk",
+)
+DEFAULT_VAE_PTH = os.path.join(DEFAULT_INFINITETALK_ROOT, "weights/Wan2.1-I2V-14B-480P/Wan2.1_VAE.pth")
+DEFAULT_SHAPE_PREDICTOR = os.path.join(
+    os.environ.get("METRICS_ROOT", "/data/karlo-research_715/workspace/kinemaar/paul/eval_metrics"),
+    "shape_predictor_68_face_landmarks.dat",
+)
 DEFAULT_GT_VIDEO_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "recon_clips")  # bundled recon clips
 
 FRAME_SIZE = 640          # pixel frame is 640x640

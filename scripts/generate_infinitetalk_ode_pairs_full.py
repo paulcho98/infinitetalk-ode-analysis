@@ -32,10 +32,20 @@ import os
 import sys
 import time
 
+# Run eager, not torch.compile/inductor. InfiniteTalk decorates exactly one helper
+# (wan/utils/multitalk_utils.py::calculate_x_ref_attn_map) with @torch.compile; on a box
+# without python3.10 dev headers Triton's launcher fails to gcc-compile (#include <Python.h>).
+# Eager is the reference semantics (the 14B DiT already runs eager) and preferable for clean
+# ODE trajectories, so disable dynamo globally. Must be set before the first compiled call.
+os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
+
 import numpy as np
 import torch
 
-INFINITETALK_ROOT = "/home/work/.local/InfiniteTalk"
+INFINITETALK_ROOT = os.environ.get(
+    "INFINITETALK_ROOT",
+    "/data/karlo-research_715/workspace/kinemaar/paul/AR_diffusion/reference_FastGen_InfiniteTalk/InfiniteTalk",
+)
 sys.path.insert(0, INFINITETALK_ROOT)
 
 import wan  # noqa: E402
@@ -251,6 +261,13 @@ def parse_args():
     p.add_argument("--max_samples", type=int, default=10)
     p.add_argument("--shard_id", type=int, default=0)
     p.add_argument("--num_shards", type=int, default=1)
+    p.add_argument("--shard_unit", choices=["sample", "job"], default="sample",
+                   help="'sample': split samples across shards (audio owned per-process; original). "
+                        "'job': split (sample,config) trajectories for balanced multi-GPU use "
+                        "(REQUIRES --precompute_audio_only run first so workers only READ the cache).")
+    p.add_argument("--precompute_audio_only", action="store_true",
+                   help="CPU-only pass: populate the wav2vec audio cache for all samples, then exit "
+                        "(no pipeline load, no trajectories). Run once before job-sharded workers.")
     p.add_argument("--skip_existing", action="store_true")
     return p.parse_args()
 
@@ -269,16 +286,50 @@ def main():
     with open(args.sample_names_file) as f:
         names = [ln.strip() for ln in f if ln.strip()]
     names = names[: args.max_samples]
-    names = names[args.shard_id :: args.num_shards]  # shard by SAMPLE (audio cached once per hash)
-    if not names:
-        print(f"[shard {args.shard_id}] no samples")
-        return
 
     audio_cache = args.audio_cache_dir or os.path.join(args.output_root, "_audio_cache")
     os.makedirs(audio_cache, exist_ok=True)
 
-    print(f"[shard {args.shard_id}/{args.num_shards}] cuda:{device} "
-          f"samples={len(names)} configs={len(configs)} building pipeline ...", flush=True)
+    # ── audio precompute pass (CPU-only, no pipeline load): populate the shared wav2vec
+    #    cache for every sample, then exit. Run this ONCE before job-sharded workers so
+    #    they only READ the cache (no concurrent torch.save race on the same hash). ──
+    if args.precompute_audio_only:
+        wav2vec_feat, audio_encoder = custom_init("cpu", args.wav2vec_dir)
+        for name in names:
+            h = name.split("_shot")[0]
+            wav = os.path.join(args.audio_dir, f"{h}.wav")
+            emb_path = os.path.join(audio_cache, f"{h}.pt")
+            if os.path.exists(emb_path):
+                print(f"[audio] cached (exists) {h}", flush=True)
+                continue
+            if not os.path.exists(wav):
+                print(f"[MISSING] {name}: wav missing at {wav}", flush=True)
+                continue
+            speech = audio_prepare_single(wav)
+            emb = get_embedding(speech, wav2vec_feat, audio_encoder)
+            torch.save(emb, emb_path)
+            print(f"[audio] cached {h} -> {emb.shape}", flush=True)
+        print("[precompute] audio cache done", flush=True)
+        return
+
+    # ── build this shard's work list ──
+    #   sample-shard (original): each hash owned by exactly one process (safe to compute audio).
+    #   job-shard: split (sample,config) trajectories for balanced multi-GPU utilization; a hash's
+    #   configs may span processes, so audio MUST be precomputed (workers read-only below).
+    if args.shard_unit == "job":
+        jobs = [(n, c) for n in names for c in configs]
+        jobs = jobs[args.shard_id :: args.num_shards]
+    else:  # sample
+        sh_names = names[args.shard_id :: args.num_shards]
+        jobs = [(n, c) for n in sh_names for c in configs]
+    if not jobs:
+        print(f"[shard {args.shard_id}] no jobs")
+        return
+
+    n_traj = len(jobs)
+    n_samp = len({n for n, _ in jobs})
+    print(f"[shard {args.shard_id}/{args.num_shards}] cuda:{device} unit={args.shard_unit} "
+          f"trajectories={n_traj} over samples={n_samp} building pipeline ...", flush=True)
     cfg = WAN_CONFIGS["infinitetalk-14B"]
     pipe = ODEInfiniteTalkPipeline(
         config=cfg,
@@ -290,7 +341,22 @@ def main():
     )
     wav2vec_feat, audio_encoder = custom_init("cpu", args.wav2vec_dir)
 
-    for name in names:
+    emb_mem: dict = {}  # hash -> emb_path (per-process memo; avoids re-reading disk)
+
+    def resolve_audio(h: str, wav: str):
+        if h in emb_mem:
+            return emb_mem[h]
+        emb_path = os.path.join(audio_cache, f"{h}.pt")
+        if not os.path.exists(emb_path):
+            # fallback (sample-mode, or precompute skipped): compute & cache. In job-mode the
+            # launcher precomputes first so this branch never runs concurrently for the same hash.
+            speech = audio_prepare_single(wav)
+            emb = get_embedding(speech, wav2vec_feat, audio_encoder)
+            torch.save(emb, emb_path)
+        emb_mem[h] = emb_path
+        return emb_path
+
+    for (name, (T, A)) in jobs:
         h = name.split("_shot")[0]
         vid = os.path.join(args.video_dir, f"{h}.mp4")
         wav = os.path.join(args.audio_dir, f"{h}.wav")
@@ -298,32 +364,26 @@ def main():
             print(f"[MISSING] {name}: vid={os.path.exists(vid)} wav={os.path.exists(wav)}", flush=True)
             continue
 
-        # precompute (or reuse cached) audio embedding once per sample
-        emb_path = os.path.join(audio_cache, f"{h}.pt")
-        if not os.path.exists(emb_path):
-            speech = audio_prepare_single(wav)
-            emb = get_embedding(speech, wav2vec_feat, audio_encoder)
-            torch.save(emb, emb_path)
-        input_clip = {"prompt": args.prompt, "cond_video": vid, "cond_audio": {"person1": emb_path}}
+        out_dir = os.path.join(args.output_root, f"infinitetalk_t{T}_a{A}", name)
+        last = os.path.join(out_dir, f"step_{args.num_inference_steps - 1:03d}_x0.pt")
+        if args.skip_existing and os.path.exists(last):
+            print(f"[skip] {name} t{T}/a{A}", flush=True)
+            continue
 
-        for (T, A) in configs:
-            out_dir = os.path.join(args.output_root, f"infinitetalk_t{T}_a{A}", name)
-            last = os.path.join(out_dir, f"step_{args.num_inference_steps - 1:03d}_x0.pt")
-            if args.skip_existing and os.path.exists(last):
-                print(f"[skip] {name} t{T}/a{A}", flush=True)
-                continue
-            t0 = time.time()
-            try:
-                pipe.extract_ode_trajectory(
-                    input_clip, out_dir,
-                    text_guide_scale=T, audio_guide_scale=A,
-                    size_buckget=args.size, frame_num=args.frame_num,
-                    sampling_steps=args.num_inference_steps, shift=args.shift, seed=args.seed,
-                )
-                print(f"[done] {name} t{T}/a{A} {time.time() - t0:.1f}s", flush=True)
-            except Exception as e:  # noqa: BLE001
-                import traceback
-                print(f"[FAIL] {name} t{T}/a{A}: {e}\n{traceback.format_exc()}", flush=True)
+        emb_path = resolve_audio(h, wav)
+        input_clip = {"prompt": args.prompt, "cond_video": vid, "cond_audio": {"person1": emb_path}}
+        t0 = time.time()
+        try:
+            pipe.extract_ode_trajectory(
+                input_clip, out_dir,
+                text_guide_scale=T, audio_guide_scale=A,
+                size_buckget=args.size, frame_num=args.frame_num,
+                sampling_steps=args.num_inference_steps, shift=args.shift, seed=args.seed,
+            )
+            print(f"[done] {name} t{T}/a{A} {time.time() - t0:.1f}s", flush=True)
+        except Exception as e:  # noqa: BLE001
+            import traceback
+            print(f"[FAIL] {name} t{T}/a{A}: {e}\n{traceback.format_exc()}", flush=True)
 
 
 if __name__ == "__main__":
