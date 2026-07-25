@@ -1,8 +1,11 @@
 # Euler-jump (ODE straightness) factorial — InfiniteTalk port
 
-Port of the OmniAvatar `euler_{cfg}_{cfg}` experiment to InfiniteTalk. **Not yet run** — code is
-written and syntax-checked, but has never executed against the model (no weights on the authoring
-machine). Smoke-test one cell before launching the full sweep.
+Port of the OmniAvatar `euler_{cfg}_{cfg}` experiment to InfiniteTalk. **Purpose: reproduce the four
+`14B_textaudio_euler_*` CSVs** — the (step-0 CFG × teacher CFG) 2×2 — on the InfiniteTalk baseline.
+See "Replication target" below for the exact cell mapping.
+
+**Not yet run.** Code is written and syntax-checked, but has never executed against the model (no
+weights on the authoring machine). Do the two pre-flight checks before launching the full sweep.
 
 ## What it measures
 
@@ -39,8 +42,31 @@ aliases and run **two overlapping 2×2s**:
 | `noaudio` | (5.0, 1.0) | audio guidance off, text held at 5 |
 | `nocfg` | (1.0, 1.0) | all guidance off |
 
-- **Factorial A (audio)**: `on` × `noaudio` — isolates the audio term.
-- **Factorial B (allcfg)**: `on` × `nocfg` — isolates guidance as a whole.
+- **Factorial A (audio)**: `on` × `noaudio` — isolates the audio term. *InfiniteTalk-only extension;
+  no OmniAvatar counterpart.*
+- **Factorial B (allcfg)**: `on` × `nocfg` — isolates guidance as a whole. **This is the direct
+  replication of the OmniAvatar result** (see below).
+
+### Replication target — the OmniAvatar 2×2
+
+Factorial B maps 1:1 onto the four OmniAvatar CSVs this experiment exists to reproduce
+(`/home/work/.local/ode_analysis/all_csvs/`, also in the `paper_compat/` bundle):
+
+| OmniAvatar CSV | trace (s₀ → s_t) | regime | our cell |
+|---|---|---|---|
+| `14B_textaudio_euler_cfg45_cfg45.csv` | 4.5 → 4.5 | guided → guided | `euler_on_on` |
+| `14B_textaudio_euler_nocfg_cfg45.csv` | 1.0 → 4.5 | unguided → guided | `euler_nocfg_on` |
+| `14B_textaudio_euler_nocfg_nocfg.csv` | 1.0 → 1.0 | unguided → unguided | `euler_nocfg_nocfg` |
+| `14B_textaudio_euler_cfg45_nocfg.csv` | 4.5 → 1.0 | guided → unguided | `euler_on_nocfg` |
+
+InfiniteTalk's default `on = (t5, a4)` stands in for OmniAvatar's scalar `cfg4.5`, and
+`nocfg = (t1, a1)` for `cfg1.0`. Metrics come from the same `eval_ode_perceptual_v2` pipeline, so
+the outputs are directly comparable to those CSVs.
+
+> **`fresh_noise` is NOT part of this.** `generate_single_step_predictions.py` has a second mode
+> (`x_t = (1-t)·x0_gt + t·eps`) which produced a separate `fresh_noise/` dir and its own CSV. It is
+> **not** one of the four above and is **excluded from the `paper_compat/` bundle**, so it is not
+> required to replicate this result and has deliberately not been ported.
 
 The `on/on` cell is shared, so this is **7 distinct runs, not 8**:
 
@@ -109,16 +135,41 @@ here to distance-to-sequential. The committed sequential geometry JSONs also sti
 velocity / `delta_cosine[0]` fixes, so 2b output needs its own re-run before it is trustworthy —
 tracked in `status-and-todo.md`, deliberately deprioritized behind this experiment.
 
-Validate ONE cell first:
+## Before you run — two pre-flight checks
+
+**1. Verify the step-0 noise is shared across configs.** We read the step-0 leg from an
+already-swept trajectory instead of recomputing it (the OmniAvatar original recomputed whenever
+`cfg_step0 != 4.5`). The two are equivalent **only if `x_t_0` is identical across configs** — it
+should be (same `seed=42`, same shape, no RNG consumed between `manual_seed` and `randn`), but this
+has never been checked against real data:
+
+```bash
+S=$(ls ode_full_trajectories_infinitetalk/infinitetalk_t5.0_a4.0 | head -1)
+python -c "
+import torch
+a=torch.load(f'ode_full_trajectories_infinitetalk/infinitetalk_t5.0_a4.0/$S/step_000_xt.pt')
+b=torch.load(f'ode_full_trajectories_infinitetalk/infinitetalk_t1.0_a1.0/$S/step_000_xt.pt')
+print('identical:', torch.equal(a,b), '| maxdiff:', (a.float()-b.float()).abs().max().item())"
+```
+
+If this is **not** identical, the step-0 legs aren't comparable and the driver must recompute step 0
+with the teacher instead of loading it — do not run the sweep until this is resolved.
+
+**2. Smoke-test `euler_on_on` on one GPU.**
 
 ```bash
 bash scripts/run_stage2_euler_jump.sh euler_on_on 0
 ```
 
-`euler_on_on` is the natural smoke test: its teacher CFG equals the source trajectory's, so its
-step-0 output should be **very close** to the sequential trajectory's step 0 (not bit-identical —
-the jump reconstructs `x_t` from `x0_0` rather than reusing the saved tensor, and the I2V anchor is
-re-pinned). Divergence at step 0 means the schedule or conditioning doesn't match.
+Its teacher CFG equals the source trajectory's, so its step-0 output should be **very close** to the
+sequential trajectory's step 0 — not bit-identical, since the jump reconstructs `x_t` from `x0_0`
+rather than reusing the saved tensor and re-pins the I2V anchor. The straightness `rel_l2` at step 0
+should be near zero; a large value means the schedule or conditioning doesn't match.
+
+This also exercises the `prepare_conditioning()` / `predict_noise()` refactor of
+`generate_infinitetalk_ode_pairs_full.py`, which the Euler driver and the **already-validated
+Stage-1 driver** now share. That refactor is pure code motion but has never been run against the
+model, so this test protects both paths.
 
 ## Design notes
 
