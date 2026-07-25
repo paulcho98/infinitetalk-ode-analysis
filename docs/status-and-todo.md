@@ -3,6 +3,16 @@
 This is the authoritative "where we are / what remains / how to proceed" doc. Read the root `README.md`
 first for the five load-bearing facts, then this.
 
+> **UPDATE — steps 1-5 are DONE.** The 8-GPU sweep, Stage-2a metrics, Stage-2b geometry and the
+> Stage-2c plotters all completed; see `results/findings.md` + `results/figures/`. What remains from
+> the original plan is **step 6 (the OmniAvatar cross-model comparison)**, plus two NEW items:
+>
+> - **Euler-jump factorial** (`docs/euler-jump-experiment.md`) — ported, **never run**. Code is
+>   syntax-checked only; smoke-test one cell before the full sweep.
+> - **Re-run Stage 2b** to pick up the true `{region}_velocity` metric and the `delta_cosine[0]`
+>   fix (see the "Corrected in this revision" note in `results/findings.md`). The committed
+>   geometry JSONs and per-config figures predate both.
+
 ## What has been done and VALIDATED
 
 1. **Environment** (`docs/environment.md`): `infinitetalk` conda env built; all InfiniteTalk deps resolve
@@ -81,6 +91,19 @@ decode across GPUs with `--shard_id/--num_shards`.
 - `plot_mouthweight_ode_results.py` is **REWORK** (1-D cfg frontier) — skip or rebuild for 2-D.
 - **Build a NEW 2-D `t×a` heatmap / Pareto view** — the natural read of this grid (quality vs the two
   guidance scales). This is the one genuinely new artifact.
+
+### 5b. Euler-jump factorial (NEW — ported, not yet run)
+Full design + commands in **`docs/euler-jump-experiment.md`**. Measures ODE straightness: jump from
+step 0 straight to each noise level and re-predict, then compare against the sequential trajectory.
+Two overlapping 2×2s over (step-0 CFG) × (teacher CFG) with `on=(5,4)`, `noaudio=(5,1)`,
+`nocfg=(1,1)` — 7 distinct cells (the on/on cell is shared).
+```bash
+bash scripts/run_infinitetalk_euler_jump.sh 50      # generate, 7 cells across 8 GPUs
+bash scripts/run_stage2_euler_jump.sh all           # metrics + geometry (same Stage-2 stack)
+python scripts/plot_euler_jump_factorial.py ...     # figures
+```
+Prereq: Stage-1 trajectories for t5.0_a4.0, t5.0_a1.0, t1.0_a1.0 (all in the standard sweep).
+**Smoke-test `euler_on_on` first** — its step 0 should land very close to the sequential trajectory's.
 
 ### 6. Compare against OmniAvatar
 The point of the study: put InfiniteTalk's ODE-straightness/quality-vs-CFG next to OmniAvatar's

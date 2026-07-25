@@ -5,3 +5,4 @@ __pycache__/
 # keep examples/ media; ignore any accidental large trajectory dumps
 ode_full_trajectories*/
 ode_analysis*/
+ode_euler_jump*/

@@ -67,20 +67,23 @@ from generate_infinitetalk import custom_init, get_embedding, audio_prepare_sing
 class ODEInfiniteTalkPipeline(InfiniteTalkPipeline):
 
     @torch.no_grad()
-    def extract_ode_trajectory(
+    def prepare_conditioning(
         self,
         input_clip: dict,
-        out_dir: str,
         *,
-        text_guide_scale: float,
-        audio_guide_scale: float,
         size_buckget: str = "infinitetalk-480",
         frame_num: int = 81,
         sampling_steps: int = 50,
         shift: float = 7.0,
         seed: int = 42,
-    ):
-        os.makedirs(out_dir, exist_ok=True)
+    ) -> dict:
+        """Build everything the denoising loop needs, WITHOUT running any DiT step.
+
+        Pure extraction of the former setup half of extract_ode_trajectory, so the Euler-jump
+        driver (generate_infinitetalk_euler_jump.py) reuses byte-identical conditioning instead
+        of duplicating it. Returns the initial noise, the shifted timestep list, the I2V anchor
+        latent, and the four CFG argument dicts.
+        """
         self.model.disable_teacache()  # never cache across CFG passes for a clean trajectory
 
         # ── setup: reference image (frame 0) + aspect-ratio bucket ──
@@ -171,7 +174,6 @@ class ODEInfiniteTalkPipeline(InfiniteTalkPipeline):
             timesteps = [timestep_transform(t, shift=shift, num_timesteps=self.num_timesteps)
                          for t in timesteps]
 
-        latent = noise
         common = dict(clip_fea=clip_context, seq_len=max_seq_len, y=y, ref_target_masks=ref_target_masks)
         arg_c = dict(context=[context], audio=audio_embs, **common)
         arg_null_text = dict(context=[context_null], audio=audio_embs, **common)
@@ -179,6 +181,70 @@ class ODEInfiniteTalkPipeline(InfiniteTalkPipeline):
         arg_null = dict(context=[context_null], audio=torch.zeros_like(audio_embs)[-1:], **common)
 
         self.model.to(self.device)
+
+        return {
+            "noise": noise,
+            "timesteps": timesteps,
+            "latent_motion_frames": latent_motion_frames,
+            "cur_motion_frames_latent_num": cur_motion_frames_latent_num,
+            "arg_c": arg_c,
+            "arg_null_text": arg_null_text,
+            "arg_null_audio": arg_null_audio,
+            "arg_null": arg_null,
+            "target_hw": (int(target_h), int(target_w)),
+        }
+
+    def predict_noise(self, latent, timestep, setup, text_guide_scale, audio_guide_scale):
+        """One teacher forward with InfiniteTalk's exact CFG branching → noise_pred (sign-flipped).
+
+        Shared by the sequential trajectory loop and the Euler-jump driver so both apply
+        identical guidance semantics.
+        """
+        latent_model_input = [latent.to(self.device)]
+        no_cfg = math.isclose(text_guide_scale, 1.0) and math.isclose(audio_guide_scale, 1.0)
+        # ── CFG (faithful to InfiniteTalk branch logic) ──
+        if no_cfg:
+            noise_pred = self.model(latent_model_input, t=timestep, **setup["arg_c"])[0]
+        elif math.isclose(text_guide_scale, 1.0):
+            noise_pred_cond = self.model(latent_model_input, t=timestep, **setup["arg_c"])[0]
+            noise_pred_drop_audio = self.model(latent_model_input, t=timestep, **setup["arg_null_audio"])[0]
+            noise_pred = noise_pred_drop_audio + audio_guide_scale * (
+                noise_pred_cond - noise_pred_drop_audio)
+        else:
+            noise_pred_cond = self.model(latent_model_input, t=timestep, **setup["arg_c"])[0]
+            noise_pred_drop_text = self.model(latent_model_input, t=timestep, **setup["arg_null_text"])[0]
+            noise_pred_uncond = self.model(latent_model_input, t=timestep, **setup["arg_null"])[0]
+            noise_pred = noise_pred_uncond + text_guide_scale * (
+                noise_pred_cond - noise_pred_drop_text) + audio_guide_scale * (
+                noise_pred_drop_text - noise_pred_uncond)
+        return -noise_pred  # velocity sign flip (multitalk.py:758)
+
+    @torch.no_grad()
+    def extract_ode_trajectory(
+        self,
+        input_clip: dict,
+        out_dir: str,
+        *,
+        text_guide_scale: float,
+        audio_guide_scale: float,
+        size_buckget: str = "infinitetalk-480",
+        frame_num: int = 81,
+        sampling_steps: int = 50,
+        shift: float = 7.0,
+        seed: int = 42,
+    ):
+        os.makedirs(out_dir, exist_ok=True)
+        setup = self.prepare_conditioning(
+            input_clip, size_buckget=size_buckget, frame_num=frame_num,
+            sampling_steps=sampling_steps, shift=shift, seed=seed,
+        )
+        noise = setup["noise"]
+        timesteps = setup["timesteps"]
+        latent_motion_frames = setup["latent_motion_frames"]
+        cur_motion_frames_latent_num = setup["cur_motion_frames_latent_num"]
+        target_h, target_w = setup["target_hw"]
+
+        latent = noise
 
         # persist schedule + reference latent
         with open(os.path.join(out_dir, "ode_schedule.json"), "w") as f:
@@ -198,32 +264,14 @@ class ODEInfiniteTalkPipeline(InfiniteTalkPipeline):
         torch.save(latent_motion_frames.detach().to(torch.bfloat16).cpu(),
                    os.path.join(out_dir, "input_latents.pt"))
 
-        no_cfg = math.isclose(text_guide_scale, 1.0) and math.isclose(audio_guide_scale, 1.0)
-
         for i in range(len(timesteps) - 1):
             timestep = timesteps[i]
             latent[:, :cur_motion_frames_latent_num] = latent_motion_frames  # pin I2V anchor
             # SAVE x_t (state fed to the model this step)
             torch.save(latent.detach().to(torch.bfloat16).cpu(),
                        os.path.join(out_dir, f"step_{i:03d}_xt.pt"))
-            latent_model_input = [latent.to(self.device)]
-
-            # ── CFG (faithful to InfiniteTalk branch logic) ──
-            if no_cfg:
-                noise_pred = self.model(latent_model_input, t=timestep, **arg_c)[0]
-            elif math.isclose(text_guide_scale, 1.0):
-                noise_pred_cond = self.model(latent_model_input, t=timestep, **arg_c)[0]
-                noise_pred_drop_audio = self.model(latent_model_input, t=timestep, **arg_null_audio)[0]
-                noise_pred = noise_pred_drop_audio + audio_guide_scale * (
-                    noise_pred_cond - noise_pred_drop_audio)
-            else:
-                noise_pred_cond = self.model(latent_model_input, t=timestep, **arg_c)[0]
-                noise_pred_drop_text = self.model(latent_model_input, t=timestep, **arg_null_text)[0]
-                noise_pred_uncond = self.model(latent_model_input, t=timestep, **arg_null)[0]
-                noise_pred = noise_pred_uncond + text_guide_scale * (
-                    noise_pred_cond - noise_pred_drop_text) + audio_guide_scale * (
-                    noise_pred_drop_text - noise_pred_uncond)
-            noise_pred = -noise_pred  # velocity sign flip (multitalk.py:758)
+            noise_pred = self.predict_noise(
+                latent, timestep, setup, text_guide_scale, audio_guide_scale)
 
             # SAVE x0_pred = x_t + sigma * noise_pred   (sigma = timestep / num_timesteps)
             sigma = (timestep / self.num_timesteps).view(-1, 1, 1, 1)
