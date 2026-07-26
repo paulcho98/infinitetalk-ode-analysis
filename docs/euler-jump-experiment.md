@@ -4,8 +4,25 @@ Port of the OmniAvatar `euler_{cfg}_{cfg}` experiment to InfiniteTalk. **Purpose
 `14B_textaudio_euler_*` CSVs** — the (step-0 CFG × teacher CFG) 2×2 — on the InfiniteTalk baseline.
 See "Replication target" below for the exact cell mapping.
 
-**Not yet run.** Code is written and syntax-checked, but has never executed against the model (no
-weights on the authoring machine). Do the two pre-flight checks before launching the full sweep.
+> **RUN AND COMPLETE (2026-07-26).** All 7 cells generated (3,500 teacher forwards, ~12.7 h on
+> 7×A100) and analysed; results in `results/findings.md` § "ODE straightness — the Euler-jump
+> factorial", figures in `results/figures/euler_jump/`, per-step curves in
+> `results/data/straightness_*.json`.
+>
+> **Both pre-flight checks passed.** (1) step-0 `x_t` is bit-identical across configs (`maxdiff=0.0`),
+> so reading the step-0 leg from the sweep is valid. Note `t_list[0] = 1000.0` → `σ₀ = 1.0` exactly,
+> so `eps_euler` reduces to `x_t_0` and the jump carries no division-amplified error. (2) `euler_on_on`
+> step 0 matched the sequential step 0 at `rel_l2 = 2.3e-3`, `cosine = 0.999884` — validating the
+> shared `prepare_conditioning`/`predict_noise` refactor against the model.
+>
+> **One bug was found on first execution:** `load_schedule()` read `ode_schedule.json` from the
+> *config* dir, but Stage 1 writes it **per sample** (`<config>/<sample>/ode_schedule.json`). All 7
+> cells died on that line in seconds. Fixed with a fallback to the first sample's schedule.
+>
+> **Headline:** curvature is created by *audio* guidance at step 0 (text contributes ~nothing);
+> the matched diagonal gives `on/on` 0.477 vs `nocfg/nocfg` 0.355 terminal `rel_l2` (full). Every
+> cell's Sync-C peaks at landing **step 11–15**, not at step 49 — one jump + one teacher call
+> recovers ~76% of the 50-step path's peak lip-sync.
 
 ## What it measures
 

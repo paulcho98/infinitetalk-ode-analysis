@@ -3,17 +3,25 @@
 This is the authoritative "where we are / what remains / how to proceed" doc. Read the root `README.md`
 first for the five load-bearing facts, then this.
 
-> **UPDATE — steps 1-5 are DONE.** The 8-GPU sweep, Stage-2a metrics, Stage-2b geometry and the
-> Stage-2c plotters all completed; see `results/findings.md` + `results/figures/`. What remains from
-> the original plan is **step 6 (the OmniAvatar cross-model comparison)**, plus two NEW items:
+> **UPDATE (2026-07-26) — steps 1-5 and the Euler-jump factorial are DONE.** The 8-GPU sweep,
+> Stage-2a metrics, Stage-2b geometry, the Stage-2c plotters and the **Euler-jump factorial** have
+> all completed; see `results/findings.md` + `results/figures/`. What remains:
 >
-> - **← CURRENT PRIORITY: Euler-jump factorial** (`docs/euler-jump-experiment.md`) — ported,
->   **never run**. Code is syntax-checked only; smoke-test `euler_on_on` before the full sweep.
-> - **Re-run Stage 2b** to pick up the true `{region}_velocity` metric and the `delta_cosine[0]`
->   fix (see the "Corrected in this revision" note in `results/findings.md`). The committed
->   geometry JSONs and per-config figures predate both. **DEPRIORITIZED** behind the Euler-jump
->   work — Stage 2b is correspondingly off by default in `run_stage2_euler_jump.sh` (`RUN_2B=1`
->   enables it). The perceptual CSVs are unaffected by either fix.
+> - **← CURRENT PRIORITY: re-run Stage 2b** to pick up the true `{region}_velocity` metric and the
+>   `delta_cosine[0]` fix (see the "Corrected in this revision" note in `results/findings.md`). The
+>   committed geometry JSONs and per-config figures predate both. It was deprioritized behind the
+>   Euler-jump work, which is now finished — so this is next. Stage 2b is correspondingly off by
+>   default in the Euler Stage-2 launchers (`RUN_2B=1` enables it). The perceptual CSVs are
+>   unaffected by either fix.
+> - **Step 6, the OmniAvatar cross-model comparison** — still blocked on the OmniAvatar
+>   `ode_analysis/` results, which are not on this machine. Note the Euler-jump Factorial B cells
+>   are a 1:1 replication of OmniAvatar's four `14B_textaudio_euler_*` CSVs, so they are the
+>   natural first thing to diff once those results are recovered.
+>
+> **Euler-jump summary:** 7 cells × 10 samples × 50 landing steps, ~12.7 h on 7×A100. Both
+> pre-flight checks passed. Curvature is created by *audio* guidance at step 0 (text contributes
+> ~nothing); Sync-C peaks at landing step 11–15, not at the end. Full write-up in
+> `results/findings.md` and `docs/euler-jump-experiment.md`.
 
 ## What has been done and VALIDATED
 
@@ -27,23 +35,34 @@ first for the five load-bearing facts, then this.
    - **FORCE-SQUARE** patch applied and verified: a non-square (2:3) reference now yields `[16,21,80,80]`.
    - VALIDATED end-to-end: decoded `x0` is a coherent talking-head (see `examples/frames/`).
    - Multi-config per model load; shards by sample; caches wav2vec audio per hash.
-4. **Stage-1 launcher** `scripts/run_infinitetalk_ode_sweep.sh`: 7 configs, 4-GPU, `--skip_existing`.
-   Confirmed all 4 shards start and produce correct output; the SWEEP WAS NOT RUN TO COMPLETION (killed
-   to free GPUs — see below).
-5. **Stage-2 drafts** (`eval_ode_perceptual_v2_infinitetalk.py`, `analyze_ode_trajectory_infinitetalk.py`):
-   both compile and their CLIs parse. For 2b, mask-derivation (dlib mouth-bbox) + WanVAE decode/encode
-   paths ran successfully on real data; the GT reader was fixed to center-crop-to-square (matches the
-   generator). 2a's GT reader already center-crops.
+4. **Stage-1 launcher**: `scripts/run_infinitetalk_ode_sweep_8gpu.sh` (job-sharded, 8-GPU) ran the
+   full 7-config sweep to completion — 70 trajectories, ~11 h, now on disk in
+   `ode_full_trajectories_infinitetalk/` (~29 GB, gitignored). `run_infinitetalk_ode_sweep.sh` is
+   the older 4-GPU variant.
+5. **Stage-2 engines** (`eval_ode_perceptual_v2_infinitetalk.py`, `analyze_ode_trajectory_infinitetalk.py`):
+   both ran to completion on the full sweep. For 2b, mask-derivation (dlib mouth-bbox) + WanVAE
+   decode/encode paths validated on real data; the GT reader was fixed to center-crop-to-square
+   (matches the generator). 2a's GT reader already center-crops.
+6. **Euler-jump factorial** (`scripts/generate_infinitetalk_euler_jump.py` +
+   `run_infinitetalk_euler_jump.sh`): all 7 cells complete, ~12.7 h on 7×A100, output in
+   `ode_euler_jump_infinitetalk/`. Both pre-flight checks in `docs/euler-jump-experiment.md` passed.
+   Stage-2 via `run_stage2_euler_jump_sharded.sh` (shards the SyncNet-bound metrics phase; the
+   unsharded `run_stage2_euler_jump.sh` is correct but much slower).
 
-## What is DRAFTED but NOT yet run to completion / not validated on final data
+## What is NOT yet done / not validated on final data
 
-- **The full sweep** never finished. It was killed twice: once to fix the force-square bug (correct),
-  once to yield GPUs (the reason this repo exists). No trajectories currently persist on disk.
-- **Stage 2a Phase-1 decode + Phase-2 metrics** were never run on real trajectories (only imports + `--help`).
-- **Stage 2b full run** crashed once on the pre-fix mixed-dims data (the crash that *found* the bug);
-  it was not re-run after the force-square fix. It should work now (uniform 80×80), but re-validate.
-- **Stage 2c plotters**: untouched. Still the OmniAvatar originals in `scripts/plotters_to_adapt/`.
-- **2-D CFG heatmap/Pareto view**: does not exist.
+> The section that used to sit here ("the full sweep never finished / no trajectories persist on
+> disk / plotters untouched") described the state at handoff and was superseded long ago. Everything
+> it listed has since run to completion. Accurate remaining list:
+
+- **Stage 2b needs a re-run** to populate the true `{region}_velocity` metric and pick up the
+  `delta_cosine[0]` fix. The committed `results/data/geometry_*.json` and the per-config 2b figures
+  predate both, so the velocity panel is the only untrustworthy output in `results/`. The perceptual
+  CSVs and the Euler-jump results are unaffected.
+- **Stage 2b was not run for the Euler-jump cells at all** (deliberate — `RUN_2B=1` enables it).
+  It measures distance-to-GT, which is secondary to distance-to-sequential for that experiment.
+- **Cross-model comparison vs OmniAvatar** (original step 6) — blocked on the OmniAvatar
+  `ode_analysis/` results, which are not on this machine.
 
 ## HOW TO PROCEED (ordered)
 

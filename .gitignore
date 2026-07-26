@@ -6,3 +6,5 @@ __pycache__/
 ode_full_trajectories*/
 ode_analysis*/
 ode_euler_jump*/
+# local S3FD symlink for Stage-2a (eval/detectors/s3fd loads it CWD-relative); machine-specific
+checkpoints/

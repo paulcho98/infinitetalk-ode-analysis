@@ -64,11 +64,26 @@ from generate_infinitetalk_ode_pairs_full import (  # noqa: E402
 
 
 def load_schedule(traj_dir: str) -> dict:
+    """Read the source trajectory's schedule.
+
+    Stage 1 writes ode_schedule.json PER SAMPLE (<traj_dir>/<sample>/ode_schedule.json), not at
+    the config level. Accept either layout: prefer a config-level file, else fall back to the
+    first sample's — they are identical across a config's samples (same scales/steps/shift/seed,
+    written from the same args in extract_ode_trajectory).
+    """
     p = os.path.join(traj_dir, "ode_schedule.json")
-    if not os.path.exists(p):
-        raise FileNotFoundError(f"source trajectory has no ode_schedule.json: {p}")
-    with open(p) as f:
-        return json.load(f)
+    if os.path.exists(p):
+        with open(p) as f:
+            return json.load(f)
+    if os.path.isdir(traj_dir):
+        for sample in sorted(os.listdir(traj_dir)):
+            q = os.path.join(traj_dir, sample, "ode_schedule.json")
+            if os.path.exists(q):
+                with open(q) as f:
+                    return json.load(f)
+    raise FileNotFoundError(
+        f"source trajectory has no ode_schedule.json: looked for {p} "
+        f"and {os.path.join(traj_dir, '<sample>', 'ode_schedule.json')}")
 
 
 def parse_args():

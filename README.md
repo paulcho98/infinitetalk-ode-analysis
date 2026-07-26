@@ -23,7 +23,7 @@ can be finished on another machine (with Claude Code).
 | **Stage 2b — latent trajectory analysis** (`scripts/analyze_ode_trajectory_infinitetalk.py`) | ✅ run for all 7 → `results/data/geometry_*.json` — ⚠️ **needs a re-run**, see below |
 | **Stage 2c — plotters** | ✅ complete — per-step curves, 2-D heatmaps, perception–distortion frontier, per-config, default-vs-baseline |
 | New **2-D CFG heatmap** view | ✅ `results/figures/cfg_grid_heatmaps_mouth.png` |
-| **Euler-jump factorial** (`scripts/generate_infinitetalk_euler_jump.py`) | 🔴 **ported, NEVER RUN** — syntax-checked only; see `docs/euler-jump-experiment.md` |
+| **Euler-jump factorial** (`scripts/generate_infinitetalk_euler_jump.py`) | ✅ **complete** — 7 cells, ~12.7 h on 7×A100; both pre-flights passed; see `docs/euler-jump-experiment.md` |
 | Cross-model comparison vs OmniAvatar | 🔴 not started (original TODO step 6) |
 
 **Findings + figures are in `results/`** — start with `results/findings.md`.

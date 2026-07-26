@@ -120,6 +120,117 @@ Figures:
 
 ---
 
+## ODE straightness — the Euler-jump factorial
+
+Stage 2b infers curvature indirectly (via distance to the GT latent). This measures it **directly**:
+instead of denoising sequentially, take the step-0 prediction, extrapolate along a *single* Euler
+jump to each landing noise level, and ask the teacher to re-predict `x0` there.
+
+```
+eps_euler = (x_t_0 − (1−σ₀)·x0_0) / σ₀        # σ₀ = 1.0 exactly, so this reduces to x_t_0
+x_t       = (1−σ)·x0_0 + σ·eps_euler           # the jump
+x0_pred   = x_t + σ·noise_pred(x_t; teacher CFG)
+```
+
+If the path were straight, one jump would reproduce the sequential result at every step. The gap
+`rel_l2 = ‖x0_euler − x0_seq‖ / ‖x0_seq‖` **is** the curvature. Two independent CFG legs — the
+guidance behind the step-0 prediction we jump *from*, and the guidance of the teacher's re-prediction
+— give two overlapping 2×2s over `on=(t5,a4)`, `noaudio=(t5,a1)`, `nocfg=(t1,a1)`; 7 distinct cells,
+since `on/on` is shared. Factorial B (`on`×`nocfg`) is the direct replication of OmniAvatar's four
+`14B_textaudio_euler_*` CSVs. Each cell is compared against the sequential trajectory whose CFG
+matches its **teacher** leg, so the only difference is *how the state was reached*.
+
+Sanity floor: at step 0 the jump reconstructs `x_t_0` exactly, and every cell reports
+`rel_l2 ≈ 0.002–0.003` there — bf16 round-off, confirming the schedule and conditioning match.
+
+### Curvature is created by AUDIO guidance at step 0
+
+Terminal `rel_l2`, averaged over the cells sharing each **step-0** leg:
+
+| step-0 leg | text | audio | full | mouth |
+|---|---|---|---|---|
+| `noaudio` | 5 | 1 | 0.358 | 0.532 |
+| `nocfg` | 1 | 1 | 0.361 | 0.551 |
+| `on` | 5 | **4** | **0.524** | **0.754** |
+
+`noaudio` (text=5) and `nocfg` (text=1) are indistinguishable despite a 5× difference in text
+guidance, while `on` — differing only in audio=4 — is **~46% more curved**. **Text guidance
+contributes essentially nothing to ODE curvature; audio guidance is the entire effect.** This is the
+geometric echo of the Stage-2a headline, where audio drove lip-sync and text barely moved it.
+
+The **matched diagonal** cells are the clean pure-curvature measurement (origin, teacher and
+reference all at the same CFG, so nothing is confounded by a mismatched comparison target):
+
+| cell | full | mouth |
+|---|---|---|
+| `nocfg → nocfg` | 0.355 | 0.541 |
+| `noaudio → noaudio` | 0.361 | 0.528 |
+| `on → on` (default) | **0.477** | **0.684** |
+
+Default guidance is **+34%** more curved than unguided. Curvature is also consistently **~1.5× worse
+in the mouth region than the frame as a whole** — the bending lives precisely in the audio-driven
+content that matters.
+
+### The teacher's audio guidance partially *corrects* the jump
+
+The teacher leg acts in the opposite direction, and more weakly (terminal `rel_l2`, averaged over
+cells sharing each teacher leg): `on` **0.400** < `noaudio` 0.445 < `nocfg` 0.461.
+
+The mechanism is visible in *where* each curve peaks. Every cell whose teacher has audio guidance on
+peaks mid-trajectory and then **reconverges** — `nocfg→on` 0.703 @ step 12 → 0.561; `on→on` 0.740 @
+step 14 → 0.684; `noaudio→on` 0.663 @ step 15 → 0.536 (mouth). Cells with the audio-off teacher
+instead grow **monotonically** to step 49. So audio CFG at the landing step actively pulls the
+jumped state back toward the sequential manifold: **audio guidance in the origin creates curvature;
+audio guidance in the teacher repairs it.**
+
+### There is an optimal landing step — and it is not the end
+
+Jumping *further* is not better. Sync-C over the landing step, mouth region:
+
+| cell (step0 → teacher) | peak Sync-C | @ step | at step 49 | LPIPS @ peak | LPIPS @ 49 |
+|---|---|---|---|---|---|
+| `on → on` | **5.98** | 11 | 2.15 | 0.382 | 0.456 |
+| `on → noaudio` | 5.41 | 13 | 2.18 | 0.375 | 0.456 |
+| `noaudio → on` | 5.37 | 13 | 1.84 | 0.392 | 0.468 |
+| `noaudio → noaudio` | 4.87 | 15 | 1.74 | 0.396 | 0.468 |
+| `nocfg → on` | 4.29 | 12 | 1.19 | 0.408 | 0.528 |
+| `on → nocfg` | 4.19 | 11 | 2.12 | 0.424 | 0.457 |
+| `nocfg → nocfg` | 3.38 | 11 | 1.23 | 0.483 | 0.529 |
+| *sequential* `(5,4)`, 50 steps | *7.89* | *28* | *7.66* | — | *0.341* |
+
+Every cell peaks at **step 11–15** and then decays by ~3× toward step 49. The reason is structural:
+as σ→0 the jump `x_t = (1−σ)·x0_0 + σ·eps` collapses onto `x0_0` itself — the blurry step-0
+prediction — leaving the teacher no noise budget to synthesize detail, so the output falls back
+toward the mean (LPIPS degrades 0.38 → 0.46 over the same range). At a mid noise level there is both
+enough signal from step 0 and enough noise left to regenerate detail.
+
+**The distillation-relevant number:** a single Euler jump plus one teacher forward — **2 model calls
+instead of 150** — recovers **5.98 of the sequential path's 7.89 peak Sync-C (~76%)** at LPIPS 0.382
+vs 0.341, provided you land at step ~11 rather than at the end. The trajectory is far from straight,
+but it is *usefully* non-straight over the first quarter.
+
+### Caveats
+
+- **Only the diagonal cells measure pure curvature.** Off-diagonal cells (e.g. `on→nocfg` at 0.568
+  full, the largest gap in the study) compare a guided-origin jump against an *unguided* sequential
+  reference, so they conflate curvature with the fact that guidance lands somewhere different. They
+  answer "does a guided origin make the ODE harder to shortcut" — not "how curved is this path".
+- **Sharpness overshoots.** `on→nocfg` reaches terminal mouth sharpness 43.5 against a GT of 25.0;
+  extrapolating linearly from a guidance-amplified prediction overshoots into artifacts. Read it as
+  a failure mode, not quality.
+- **Sync numbers on blurry jumps are noisy.** Per-cell `metrics.csv` row counts vary (4750–4963)
+  because SyncNet fails to land a face track on some heavily-blurred jumped frames. This mostly
+  affects late landing steps, where Sync-C is already near the floor.
+- Stage 2b (GT-latent geometry) was **not** run for these cells — it measures distance-to-GT, which
+  is secondary here to distance-to-sequential. Enable with `RUN_2B=1`.
+
+Figures & data:
+- `figures/euler_jump/euler_factorial_allcfg_mouth.png` — Factorial B (the OmniAvatar replication).
+- `figures/euler_jump/euler_factorial_audio_mouth.png` — Factorial A (audio term isolated).
+- `figures/euler_jump/euler_terminal_values.csv`, `data/straightness_*.json` (per-step curves).
+
+---
+
 ## Method notes / reproducibility
 
 - **x0 derivation:** InfiniteTalk has no x0 head (hand-written flow-matching Euler on velocity);
@@ -130,3 +241,8 @@ Figures:
   one `@torch.compile` helper can't JIT; eager is the reference semantics and cleaner for trajectories.
 - **Compute:** Stage-1 sweep ~11 h on 8×A100 (job-sharded, 70 trajectories); Stage-2 decode ~55 min/config,
   metrics re-sharded 35-way across 8 GPUs (~90 min for all 7). Full pipeline scripts under `scripts/`.
+- **Euler-jump sweep:** ~12.7 h on 7×A100 (one cell per GPU, 3,500 teacher forwards = 7 cells × 10
+  samples × 50 landing steps). Measured ~29 s/forward, so the five 3-call cells dominate; the two
+  1-call (`nocfg`-teacher) cells finish in ~⅓ the time. Stage-2 for these cells uses
+  `run_stage2_euler_jump_sharded.sh`, which shards the SyncNet-bound metrics phase — the unsharded
+  `run_stage2_euler_jump.sh` is correct but far slower.
