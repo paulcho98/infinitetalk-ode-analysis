@@ -365,7 +365,7 @@ def main():
     print(f"\nDone! {len(sample_names)} samples × {num_steps} steps in {elapsed_total/60:.1f} min")
     print(f"Videos: {videos_dir}")
     print(f"\nTo run metrics:")
-    print(f"  python scripts/eval_ode_perceptual_v2.py --phase metrics \\")
+    print(f"  python scripts/omniavatar/eval_ode_perceptual_v2.py --phase metrics \\")
     print(f"    --traj_dir {args.traj_dir} --mask_path {MASK_PATH} \\")
     print(f"    --output_dir {args.output_dir}")
 

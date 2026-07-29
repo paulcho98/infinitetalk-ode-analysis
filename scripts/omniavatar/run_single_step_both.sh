@@ -9,8 +9,8 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 [ -f "$REPO_ROOT/configs/machine.env" ] && source "$REPO_ROOT/configs/machine.env"
+# Original ran every phase under a single interpreter (the omniavatar env) — preserved here.
 PY_OMNI="${PY_OMNI:-/home/work/.local/miniconda3/envs/omniavatar/bin/python}"
-PY_FASTGEN="${PY_FASTGEN:-/home/work/.local/miniconda3/envs/fastgen/bin/python}"
 
 SCRIPT="$REPO_ROOT/scripts/omniavatar/generate_single_step_predictions.py"
 METRICS="$REPO_ROOT/scripts/omniavatar/eval_ode_perceptual_v2.py"
@@ -22,7 +22,7 @@ BASE_OUT="${ODE_ANALYSIS_ROOT_OMNI:-/home/work/.local/ode_analysis}/14B"
 echo "=== Phase 1: Generate predictions (4 GPUs parallel) ==="
 
 # 1. Fresh noise (CFG 4.5)
-CUDA_VISIBLE_DEVICES=0 "$PY_FASTGEN" "$SCRIPT" \
+CUDA_VISIBLE_DEVICES=0 "$PY_OMNI" "$SCRIPT" \
     --mode fresh_noise \
     --traj_dir "$TRAJ_DIR" \
     --output_dir "$BASE_OUT/fresh_noise" \
@@ -31,7 +31,7 @@ CUDA_VISIBLE_DEVICES=0 "$PY_FASTGEN" "$SCRIPT" \
     --skip_existing &
 
 # 2. Euler jump: CFG 4.5 → CFG 4.5 (original)
-CUDA_VISIBLE_DEVICES=1 "$PY_FASTGEN" "$SCRIPT" \
+CUDA_VISIBLE_DEVICES=1 "$PY_OMNI" "$SCRIPT" \
     --mode euler_jump \
     --traj_dir "$TRAJ_DIR" \
     --output_dir "$BASE_OUT/euler_cfg45_cfg45" \
@@ -40,7 +40,7 @@ CUDA_VISIBLE_DEVICES=1 "$PY_FASTGEN" "$SCRIPT" \
     --skip_existing &
 
 # 3. Euler jump: no CFG → CFG 4.5
-CUDA_VISIBLE_DEVICES=2 "$PY_FASTGEN" "$SCRIPT" \
+CUDA_VISIBLE_DEVICES=2 "$PY_OMNI" "$SCRIPT" \
     --mode euler_jump \
     --traj_dir "$TRAJ_DIR" \
     --output_dir "$BASE_OUT/euler_nocfg_cfg45" \
@@ -49,7 +49,7 @@ CUDA_VISIBLE_DEVICES=2 "$PY_FASTGEN" "$SCRIPT" \
     --skip_existing &
 
 # 4. Euler jump: no CFG → no CFG
-CUDA_VISIBLE_DEVICES=3 "$PY_FASTGEN" "$SCRIPT" \
+CUDA_VISIBLE_DEVICES=3 "$PY_OMNI" "$SCRIPT" \
     --mode euler_jump \
     --traj_dir "$TRAJ_DIR" \
     --output_dir "$BASE_OUT/euler_nocfg_nocfg" \
