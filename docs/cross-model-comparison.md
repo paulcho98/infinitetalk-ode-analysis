@@ -94,6 +94,17 @@ cells are gap A.
 — which is **terminal step only, mouth only, 4 metrics** (`plot_euler_jump_factorial.py` hardcodes
 `REGION = "mouth"` and reads the last step).
 
+**Tracked in `configs/registry.yaml`**: the 4 per-step euler entries carry `status:
+missing_sweep_machine` and a `csv:` path that does not exist yet in this repo —
+`it_euler_on_on`, `it_euler_nocfg_on`, `it_euler_nocfg_nocfg`, `it_euler_on_nocfg`, pointing at
+`results/infinitetalk/data/euler_{on_on,nocfg_on,nocfg_nocfg,on_nocfg}_metrics.csv` respectively.
+Each is paired with its OmniAvatar replication target under `comparisons:` in the same file
+(`euler_on_on`, `euler_nocfg_on`, `euler_nocfg_nocfg`, `euler_on_nocfg`). Fetching the 7 files
+below and dropping them at those exact `csv:` paths (renaming/merging as needed — the sweep
+machine's per-cell layout doesn't match the flat filename the registry expects 1:1) is what turns
+`status: missing_sweep_machine` into a resolvable entry. Also logged in
+`docs/status-and-todo.md` § Deferred re-runs (c).
+
 That is precisely the wrong slice: our own finding is that Sync-C peaks at landing **step 11–15** and
 decays ~3× by step 49, so a terminal-only diff against OmniAvatar's per-step CSVs discards the result.
 

@@ -152,6 +152,46 @@ no OmniAvatar straightness counterpart, because those runs never saved latents a
 trajectory dump is gone), which OmniAvatar experiment families have no InfiniteTalk analogue, and why
 sharpness/pixel-MSE must be normalized per model before any cross-model claim.
 
+## Deferred re-runs
+
+Three re-runs are scripted and ready but deliberately not executed as part of the unified-repo
+work (out of scope per the design spec — no new experiments, no logic changes, numerical behavior
+of every ported script must stay unchanged). Each unblocks a specific downstream comparison:
+
+**(a) OmniAvatar cfg=4.5 sequential trajectory + the 4 euler cells, with latents saved.**
+The original OmniAvatar study never persisted the cfg-4.5 sequential `.pt` dump (it's gone — see
+`docs/cross-model-comparison.md` gap C) and never saved euler-cell latents at all. This is why
+`docs/status-and-todo.md`'s / `results/omniavatar/data/`'s Stage-2b (latent geometry) has **no**
+OmniAvatar counterpart today, and why the straightness number (`‖x0_euler − x0_sequential‖`,
+`scripts/common/measure_euler_straightness.py`) can only be computed on the InfiniteTalk side.
+`scripts/omniavatar/generate_ode_trajectories.sh` already writes `step_NNN_xt.pt`/`step_NNN_x0.pt`
+per step (no re-run needed there beyond re-executing it); `generate_single_step_predictions.py`
+now has `--save_latents` (added in this repo, off by default, dumps `step_NNN_x0.pt` per landing
+step) — re-run `scripts/omniavatar/run_single_step_both.sh`'s 4 cells with that flag added to
+unblock the OmniAvatar-side straightness measurement. Registry ids: `omni_ta_default` (sequential)
++ the 4 `omni_ta_euler_*` ids. **Unblocks:** cross-model ODE-straightness comparison.
+
+**(b) InfiniteTalk Stage-2b re-run on the sweep machine.**
+`results/infinitetalk/data/geometry_*.json` and the per-config Stage-2b figures predate the true
+`{region}_velocity` metric and the `delta_cosine[0]` fix (see the top of this doc). Needs the
+29 GB trajectory dump, which only exists on the sweep machine. Command:
+`python scripts/infinitetalk/analyze_ode_trajectory_infinitetalk.py ...` (full invocation in the
+"Quickstart — InfiniteTalk" section of `README.md`), across all 7 configs, then commit the
+refreshed `geometry_*.json` files. **Unblocks:** trusting the InfiniteTalk velocity/Δ-cosine
+panels; independent of everything else here.
+
+**(c) Gap A — InfiniteTalk's per-step euler perceptual CSVs, from the sweep machine.**
+`configs/registry.yaml` marks the 4 per-step euler-metrics entries `status: missing_sweep_machine`:
+`it_euler_on_on`, `it_euler_nocfg_on`, `it_euler_nocfg_nocfg`, `it_euler_on_nocfg` (their `csv:`
+paths — `results/infinitetalk/data/euler_{on_on,nocfg_on,nocfg_nocfg,on_nocfg}_metrics.csv` — do
+not exist yet in this repo). Only 7 files (~500 KB total) need to move off the sweep machine:
+```
+<repo>/ode_analysis_euler_jump/euler_{on_on,on_noaudio,on_nocfg,noaudio_on,noaudio_noaudio,nocfg_on,nocfg_nocfg}/perceptual_v2/metrics.csv
+```
+Full detail (why it matters — the terminal-step-only data already committed misses the step
+11–15 Sync-C peak entirely) in `docs/cross-model-comparison.md` gap A. **Unblocks:** per-step
+Factorial-B diff against OmniAvatar's `14B_textaudio_euler_*` CSVs; independent of (a) and (b).
+
 ## Known issues / watch-list
 - **Timing**: ~26 min/trajectory; the (1,1) config is 3× faster (1-pass). Plan for ~8 h/sweep.
 - **Env-split for 2a**: `latentsync-metrics` env lacks `lpips`; use `omniavatar` for Phase-2 metrics.

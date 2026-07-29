@@ -1,110 +1,220 @@
-# InfiniteTalk ODE Trajectory Extraction & Analysis
+# talking-head-ode-analysis
 
-Self-contained code + documentation for **reproducing the OmniAvatar ODE-trajectory analysis on the
-InfiniteTalk baseline**. This repo is a handoff package: it holds all the code written so far, the
-reference originals it derives from, comprehensive background, and a precise status + TODO so the work
-can be finished on another machine (with Claude Code).
+> Current checkout: `/home/work/.local/infinitetalk-ode-analysis`. This repo is being renamed
+> `talking-head-ode-analysis` on GitHub (the rename itself is a separate, later task) — the name
+> above is the target name, used here in anticipation of it.
 
-> **One-line goal:** For each denoising step of InfiniteTalk's audio-driven diffusion, save the noisy
-> state `x_t` and the model's denoised prediction `x0`, across a 2-D classifier-free-guidance (CFG)
-> sweep, then analyze how the ODE trajectory geometry and perceptual quality change with CFG — exactly
-> as was done for the OmniAvatar model.
+Self-contained code + documentation for an **ODE-trajectory analysis of two audio-driven
+portrait-animation diffusion models built on Wan 2.1**: **OmniAvatar** (Wan2.1 T2V-14B base +
+LoRA + additive-residual audio conditioning, V2V lip-sync) and **InfiniteTalk** (Wan2.1 I2V-14B
+base + audio cross-attention). Both are analyzed with the same two-stage pipeline:
 
----
+1. **Generation (Stage 1):** run the model's flow-matching sampler across a 1-D or 2-D
+   classifier-free-guidance (CFG) sweep and, at every denoising step, save the noisy latent `x_t`
+   and the model's denoised prediction `x0`.
+2. **Analysis (Stage 2):** decode each `x0` and measure perceptual/lip-sync quality *vs step*
+   (Stage 2a); measure the ODE trajectory's geometry — straightness, velocity, distance-to-GT —
+   *vs step* (Stage 2b); plot both against CFG (Stage 2c).
 
-## TL;DR status (read `docs/status-and-todo.md` for the full version)
+A `scripts/comparison/` stage joins the two models' per-step CSVs for a direct, CFG-normalized
+comparison — **not started yet** (directory is empty); see `docs/cross-model-comparison.md`.
 
-| Piece | State |
-|---|---|
-| Env + checkpoints | ✅ working (`infinitetalk` conda env; see `docs/environment.md`) |
-| **Stage 1 — trajectory generation** (`scripts/infinitetalk/generate_infinitetalk_ode_pairs_full.py`) | ✅ **complete** — 7-config sweep, 70 trajectories, ~11 h on 8×A100 |
-| Stage 1 launcher (`scripts/infinitetalk/run_infinitetalk_ode_sweep_8gpu.sh`) | ✅ complete (job-sharded 8-GPU; `run_infinitetalk_ode_sweep.sh` is the older 4-GPU variant) |
-| **Stage 2a — perceptual metric engine** (`scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py`) | ✅ **complete** — all 7 configs → `results/infinitetalk/data/perceptual_*.csv` |
-| **Stage 2b — latent trajectory analysis** (`scripts/infinitetalk/analyze_ode_trajectory_infinitetalk.py`) | ✅ run for all 7 → `results/infinitetalk/data/geometry_*.json` — ⚠️ **needs a re-run**, see below |
-| **Stage 2c — plotters** | ✅ complete — per-step curves, 2-D heatmaps, perception–distortion frontier, per-config, default-vs-baseline |
-| New **2-D CFG heatmap** view | ✅ `results/infinitetalk/figures/cfg_grid_heatmaps_mouth.png` |
-| **Euler-jump factorial** (`scripts/infinitetalk/generate_infinitetalk_euler_jump.py`) | ✅ **complete** — 7 cells, ~12.7 h on 7×A100; both pre-flights passed; see `docs/euler-jump-experiment.md` |
-| Cross-model comparison vs OmniAvatar | 🔴 not started — **no longer blocked**; read `docs/cross-model-comparison.md` |
+**Full current status, per model:** `docs/status-and-todo.md` (InfiniteTalk-focused — that
+study's generation/analysis/euler-jump work is complete, one re-run pending) and
+`docs/omniavatar-experiments.md` (OmniAvatar's experiment inventory — a completed historical
+study, ported into this repo as committed CSVs + regeneration scripts).
 
-**Findings + figures are in `results/`** — start with `results/infinitetalk/findings.md`.
-
-### ⚠️ Outstanding before trusting the Stage-2b geometry
-The committed `results/infinitetalk/data/geometry_*.json` and `results/infinitetalk/figures/per_config/` predate two fixes to
-`analyze_ode_trajectory_infinitetalk.py`, so **Stage 2b should be re-run**:
-
-1. a genuine `{region}_velocity` = ‖x0(t)−x0(t−1)‖² was added — the old overlay mislabeled the
-   *signed* `delta_mse` as velocity and log-plotted it, silently dropping every negative step;
-2. `delta_cosine[0]` was seeded with an *absolute* cosine instead of 0, which dominated the Δ-cosine
-   bar panels and always won the "top-5 Δ-cosine steps" ranking.
-
-The perceptual CSVs (`results/infinitetalk/data/perceptual_*.csv`) are **unaffected** by both.
+| | OmniAvatar | InfiniteTalk |
+|---|---|---|
+| Stage 1 (trajectories) | done — 27 CSVs' worth of prior runs; latents were not retained for most of them (see Deferred re-runs below) | done — 7-config sweep, 70 trajectories |
+| Stage 2a (perceptual/lip metrics) | done, all groups | done, all 7 configs |
+| Stage 2b (latent geometry) | not computed for any OmniAvatar run in this study (no surviving latents) | done, all 7 configs — **stale**, needs a re-run (see `docs/status-and-todo.md`) |
+| Euler-jump (ODE straightness) | done, both CFG-drop modes (8 cells) | done, all 7 cells |
+| Cross-model comparison | not started (`scripts/comparison/` is empty) | — |
 
 ---
 
-## Background — what this is and why
+## Repo map
 
-### The OmniAvatar ODE analysis (the thing we're reproducing)
-For the OmniAvatar audio-avatar model we ran a two-stage study:
-1. **Generation:** run the 50-step flow-matching (rectified-flow) sampler and, at every step, dump the
-   latent `x_t` and the denoised prediction `x0`. Repeat across a sweep of CFG scales.
-2. **Analysis:** decode each `x0` and measure perceptual/lip-sync quality *vs step*; measure the ODE
-   trajectory geometry (how "straight" the path is, velocity, x0-vs-GT) *vs step*; compare across CFG.
-   The research question is how CFG bends the ODE trajectory and trades off quality.
+```
+configs/
+  machine-omniavatar.env.example   # path roots for this box
+  machine-sweep.env.example        # path roots for the InfiniteTalk sweep machine
+  machine.env                      # your copy (gitignored) — cp one of the two examples here
+  registry.yaml                    # every experiment: model, guidance knobs, CSV path, registry id
 
-The OmniAvatar results live at `/home/work/.local/ode_full_trajectories` (generation) and
-`/home/work/.local/ode_analysis` (analysis) on the **OmniAvatar machine** — the box whose repo root is
-`/home/work/.local/OmniAvatar`, not the machine the InfiniteTalk sweep ran on. Verified present and
-diffable against this repo's CSVs on 2026-07-29; inventory and gaps in
-`docs/cross-model-comparison.md`. The generation code was in a
-separate repo, **FastGen** (`fastgen.networks.OmniAvatar.network.OmniAvatarWan` +
-`scripts/generate_omniavatar_ode_pairs_full.py`); the analysis code was in the **OmniAvatar** repo's
-`scripts/` (`eval_ode_perceptual_v2.py`, `analyze_ode_trajectory.py`, `plot_*.py`). Both originals are
-in `reference/` and `scripts/plotters_to_adapt/` here.
+models/                            # vendored — Stage 1/2 run with no external repo checkout
+  omniavatar_wan/                  # OmniAvatarWan (DiT + AudioPack + FastGenNetwork base), from FastGen
+  wan_vae/                         # Wan VAE decoder + a direct loader (replaces OmniAvatar's ModelManager)
 
-### Porting to InfiniteTalk (this repo)
-InfiniteTalk (https://github.com/MeiGen-AI/InfiniteTalk) is a different audio-avatar model. We want the
-**same** analysis on it. Only the *generation* stage is model-specific; the *analysis* stage mostly
-ports (with dim/mask edits). See `docs/architecture-analysis.md` (renamed
-`infinitetalk-architecture-analysis.md`) for the deep model comparison.
+scripts/
+  common/
+    measure_euler_straightness.py  # ‖x0_euler − x0_sequential‖ per step — model-agnostic, both sides use it
+  infinitetalk/                    # Stage 1 driver + 8-GPU launcher, Stage 2a/2b engines, Stage 2c plotters,
+                                    #   euler-jump generator + launcher + plotter (17 files)
+  omniavatar/                      # ported from the OmniAvatar + FastGen repos (26 files):
+                                    #   Stage 1 driver + 3 launchers (cfg4.5 / nocfg / no-audio)
+                                    #   euler-jump/fresh-noise generator + launcher (+ --save_latents)
+                                    #   Stage 2a/2b engines, decode/visualize/spatial-probe scripts
+                                    #   4 metrics/mouthweight launchers, 10 comparison plotters
+  comparison/                      # cross-model comparison stage — EMPTY, not started
 
----
+data/
+  recon_sample_names.txt           # the 10 Hallo3 recon sample IDs shared by both models
+  recon_clips/<hash>.{mp4,wav}     # all 10 reference videos + audio, bundled (~7.6 MB)
+  mask.png                         # LatentSync-style upper-face/mouth mask (OmniAvatar region split)
 
-## The five facts that make this work (do not lose these)
+results/
+  omniavatar/data/                 # 27 CSVs + README.md, committed from the original OmniAvatar study
+  omniavatar/figures/               # EMPTY — no figures regenerated in this repo yet
+  infinitetalk/data/, infinitetalk/figures/   # 7-config sweep CSVs, geometry + straightness JSONs, all figures
+  infinitetalk/findings.md         # written analysis — start here for InfiniteTalk results
+  comparison/                      # EMPTY — cross-model comparison outputs land here
 
-1. **InfiniteTalk has NO x0 head.** Its sampler is a hand-written flow-matching Euler on *velocity*:
-   the running `latent` IS `x_t`, and it stores `noise_pred = -v` (velocity, sign-flipped). To get the
-   denoised prediction we DERIVE it:
-   ```
-   sigma  = timesteps[i] / 1000          # timesteps are on a 0..1000 scale
-   x0_pred = x_t + sigma * noise_pred    # (noise_pred is already the negated velocity)
-   ```
-   This is implemented in `scripts/infinitetalk/generate_infinitetalk_ode_pairs_full.py`. It matches OmniAvatar's
-   x0-space convention (CFG-in-velocity ≡ CFG-in-x0 because the map is affine; and InfiniteTalk's Euler
-   update ≡ OmniAvatar's rectified-flow re-noise step), so the two models' trajectories are comparable.
+reference/                         # frozen originals — diff any scripts/omniavatar/* port against these
+  README.md
+  omniavatar_analysis/             # original OmniAvatar repo scripts/ (8 files)
+  fastgen_generation/               # original FastGen driver + OmniAvatarWan_model/ + fastgen_core/
 
-2. **3-call CFG** (default text_scale=5, audio_scale=4):
-   `noise_pred = uncond + text_s·(cond − drop_text) + audio_s·(drop_text − uncond)`.
-   Special case: `text_scale == 1` uses a 2-call drop_audio formula; and `(1,1)` collapses to just the
-   conditional pass (1 forward pass — the no-CFG baseline).
+examples/                          # smoke-test media: InfiniteTalk generation, decoded x0 frames, 2 sample clips
 
-3. **FORCE SQUARE.** InfiniteTalk's `generate_infinitetalk` picks the aspect-ratio bucket closest to
-   each reference image, so non-square references (Hallo3 has 2:3 portraits) give NON-square latents
-   `[16,21,64,96]`. We require square, so the driver hardcodes `target_h=target_w=640` (→ `[16,21,80,80]`
-   for every sample). **This bug bit us once and cost a full sweep — keep it fixed.** Stage-2 GT frame
-   readers must use the same center-crop-to-square (not a stretch resize).
-
-4. **Latent = `[16, 21, 80, 80]`** (16 ch, 21 latent frames, 80×80 latent = 640×640 pixels). Decode
-   ONLY with InfiniteTalk's `WanVAE` (the trajectories live in its VAE space).
-
-5. **This model is SLOW.** ~10 s per DiT forward pass at 480p → ~26 min per 3-call trajectory →
-   the full 7-config × 10-sample × 50-step sweep is **~8 hours on 4 GPUs**. (No teacache — it's off for
-   clean trajectories.) Budget accordingly.
+docs/
+  status-and-todo.md               # START HERE — current state + ordered next steps (InfiniteTalk-focused)
+  omniavatar-experiments.md        # OmniAvatar experiment inventory: 6 groups, registry ids, regen commands
+  cross-model-comparison.md        # step-6 handoff: machine map, OmniAvatar inventory, gaps, normalization rules
+  euler-jump-experiment.md         # the ODE-straightness factorial: design + InfiniteTalk results
+  environment.md                   # `infinitetalk` conda env: build steps, pins, gotchas
+  data.md                          # the 10 recon samples, force-square, prompt, output layout
+  stage2-audit.md                  # per-script portability classification (OmniAvatar → InfiniteTalk Stage 2)
+  architecture-analysis.md         # deep InfiniteTalk vs OmniAvatar model comparison
+  infinitetalk-ode-port-plan.md    # historical planning doc, predates the two-model repo split
+```
 
 ---
 
-## The CFG sweep (7 configs)
+## Environments
 
-Naming: `infinitetalk_t{T}_a{A}`. Two families sharing the audio axis {1,2,4,6}:
+Three conda envs, no single `requirements.txt` (the two models' dependency stacks conflict).
+
+| Env | Used for | Pins / quirks |
+|---|---|---|
+| **`omniavatar`** | All OmniAvatar Stage-2 metrics (dlib mouth landmarks + lpips + SyncNet) and VAE decode; **also** the euler-jump/fresh-noise generator — `run_single_step_both.sh` runs every phase (generation *and* metrics) under this one env, matching the original single-interpreter launcher | Shares the sibling OmniAvatar repo's conda env. Has the full metrics stack that `latentsync-metrics` lacks (no `lpips` there). |
+| **`fastgen`** | OmniAvatar Stage-1 trajectory generation only — `generate_ode_trajectories.sh`, `generate_ode_nocfg.sh`, `generate_ode_no_audio.sh`, and batch 1 (trajectory gen) of `run_mouthweight_generation.sh` | Needs the FastGen-era torch stack `models/omniavatar_wan` was vendored from. **Quirk:** clear `LD_LIBRARY_PATH` before invoking — the system's CUDA 12.8 install shadows the env's own CUDA 12.9 libs: `env LD_LIBRARY_PATH= "$PY_FASTGEN" ...` |
+| **`infinitetalk`** | InfiniteTalk Stage-1 generation + Stage-2 decode | `torch==2.4.1`, `torchvision==0.19.1`, `torchaudio==2.4.1`, `xformers==0.0.28`, `flash_attn==2.7.4.post1`, `transformers==4.49.0`, `diffusers==0.33.1`, `dlib-bin`. **`TORCHDYNAMO_DISABLE=1`** (eager execution only — this box lacks the python3.10 dev headers Triton/inductor needs to compile). Full build steps + every gotcha: `docs/environment.md`. |
+
+---
+
+## Machine setup
+
+```bash
+cp configs/machine-omniavatar.env.example configs/machine.env   # this box (OmniAvatar + InfiniteTalk both present)
+# cp configs/machine-sweep.env.example configs/machine.env      # the InfiniteTalk-only sweep machine
+```
+
+Edit `configs/machine.env` (gitignored) for your paths. On this box it's already correct out of
+the box: `WEIGHTS_ROOT=/home/work/.local/hyunbin/LipForcing-release/weights` (the Wan2.1-T2V-14B
+base weights — **not** `OmniAvatar/pretrained_models`, which only holds the OmniAvatar-specific
+checkpoints). Every launcher `source`s `configs/machine.env` if present; every path constant also
+has a hardcoded fallback default and can be overridden by env var or CLI flag, so nothing breaks
+if you skip this step and just export the two or three vars you need.
+
+---
+
+## Quickstart — OmniAvatar
+
+Full experiment-by-experiment inventory + exact regeneration commands: **`docs/omniavatar-experiments.md`**.
+
+**Generate (Stage 1, `fastgen` env):**
+```bash
+bash scripts/omniavatar/generate_ode_trajectories.sh          # 50-step trajectory, CFG=4.5 (the default)
+bash scripts/omniavatar/generate_ode_nocfg.sh                  # 50-step, no CFG (guidance_scale=1.0, ~2x faster)
+bash scripts/omniavatar/generate_ode_no_audio.sh               # audio-ablation (zeroed audio embeddings)
+```
+Other CFG values, the audio-only CFG-drop mode, or scheduled CFG have no dedicated launcher — call
+the driver directly (see `docs/omniavatar-experiments.md` for the exact flags per experiment):
+```bash
+python scripts/omniavatar/generate_omniavatar_ode_pairs_full.py \
+  --guidance_scale <X> --cfg_drop_text {true,false} [--cfg_crossover <tau>] ...
+```
+
+**Euler-jump / fresh-noise (`omniavatar` env, single interpreter for gen + metrics):**
+```bash
+bash scripts/omniavatar/run_single_step_both.sh    # 4 GPUs parallel: fresh_noise, euler on/on, euler nocfg/on, euler nocfg/nocfg
+```
+
+**Analyze (Stage 2, `omniavatar` env):**
+```bash
+bash scripts/omniavatar/run_eval_ode_perceptual_v2.sh    # Stage 2a: decode + perceptual/lip metrics, 4 GPUs
+bash scripts/omniavatar/run_all_metrics_sequential.sh    # same engine, 1 GPU sequential (audio-only-CFG + LatentSync groups)
+python scripts/omniavatar/analyze_ode_trajectory.py \    # Stage 2b: latent geometry (straightness, velocity, x0-vs-GT)
+  --traj_dir <cfg_dir> --mask_path data/mask.png --output_dir <out>
+```
+
+MouthWeight checkpoint (separate teacher, `$MOUTHWEIGHT_CKPT`):
+```bash
+bash scripts/omniavatar/run_mouthweight_generation.sh
+bash scripts/omniavatar/run_mouthweight_evaluation.sh
+```
+
+**Plot (`omniavatar` env, 10 plotters — full list in `docs/omniavatar-experiments.md`):**
+```bash
+python scripts/omniavatar/plot_combined_ode_comparison.py --output_dir <out>   # main 14B text+audio overlay
+python scripts/omniavatar/plot_cfg_mode_compare.py --output_dir <out>          # text+audio vs audio-only vs noCFG
+python scripts/omniavatar/plot_all_models_compare.py --output_dir <out>        # OmniAvatar vs LatentSync
+```
+Every plotter takes `--analysis_root` (default `$ODE_ANALYSIS_ROOT_OMNI`) and expects the nested
+`<config>/<variant>/metrics.csv` shape that `run_eval_ode_perceptual_v2.sh` /
+`run_all_metrics_sequential.sh` produce — i.e. they regenerate figures from a **live** analysis
+run, not directly from the flat, already-merged CSVs committed at `results/omniavatar/data/`
+(those are a separately-exported historical bundle; see `docs/omniavatar-experiments.md`).
+
+---
+
+## Quickstart — InfiniteTalk
+
+**Generate (Stage 1, `infinitetalk` env, ~11 h on 8 GPUs):**
+```bash
+bash scripts/infinitetalk/run_infinitetalk_ode_sweep_8gpu.sh 50   # 50 = num steps; 7-config sweep, 70 trajectories
+```
+
+**Analyze (Stage 2a — two-env: decode in `infinitetalk`, metrics in `omniavatar`; `latentsync-metrics` lacks `lpips`):**
+```bash
+python scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py --phase decode  --traj_dir <cfg_dir> --output_dir <out>
+python scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py --phase metrics --traj_dir <cfg_dir> --output_dir <out>
+python scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py --merge          --traj_dir <cfg_dir> --output_dir <out>
+```
+
+**Analyze (Stage 2b, `infinitetalk` env — needs a re-run, see `docs/status-and-todo.md`):**
+```bash
+python scripts/infinitetalk/analyze_ode_trajectory_infinitetalk.py \
+  --traj_dir <cfg_dir> --output_dir <out> --gt_mode encode \
+  --gt_video_dir <hallo3_benchmark_videos> --mask_source ref_decode \
+  --mouth_mask_cache <cache> --shape_predictor <eval_metrics>/shape_predictor_68_face_landmarks.dat
+```
+
+**Plot (Stage 2c):**
+```bash
+python scripts/infinitetalk/plot_ode_curves_infinitetalk.py     --analysis_root <root> --output_dir results/infinitetalk/figures
+python scripts/infinitetalk/plot_cfg_grid_infinitetalk.py       --analysis_root results/infinitetalk/data --output_dir results/infinitetalk/figures
+python scripts/infinitetalk/plot_trajectory_geometry_overlay.py --geometry_dir  results/infinitetalk/data --output_dir results/infinitetalk/figures/trajectory
+python scripts/infinitetalk/plot_default_vs_baseline.py         # default vs (t5,a1) and vs (1,1), mouth region
+```
+
+**Euler-jump factorial — complete** (all 7 cells, ~12.7 h on 7×A100). Full design in
+`docs/euler-jump-experiment.md`; results in `results/infinitetalk/findings.md` § "ODE straightness".
+```bash
+bash scripts/infinitetalk/run_infinitetalk_euler_jump.sh 50        # generate, 7 cells across 8 GPUs
+bash scripts/infinitetalk/run_stage2_euler_jump_sharded.sh all     # straightness + Stage 2a; shards the SyncNet leg
+python scripts/infinitetalk/plot_euler_jump_factorial.py --euler_analysis_root ode_analysis_euler_jump \
+    --sequential_analysis_root ode_analysis_infinitetalk --output_dir results/infinitetalk/figures/euler_jump
+```
+The headline curvature number, `‖x0_euler − x0_sequential‖` per step, comes from
+`scripts/common/measure_euler_straightness.py` — model-agnostic, reads only saved `x0` tensors
+(no VAE/GT/model), runs in seconds.
+
+### The CFG sweep (7 configs)
+
+Naming: `infinitetalk_t{T}_a{A}`. Two families sharing the audio axis `{1,2,4,6}`:
 
 | audio | Family 1 (text fixed=5) | Family 2 (text scaled) |
 |---|---|---|
@@ -115,143 +225,66 @@ Naming: `infinitetalk_t{T}_a{A}`. Two families sharing the audio axis {1,2,4,6}:
 
 7 distinct: `5:4, 5:1, 5:2, 5:6, 1:1, 2.5:2, 7.5:6`.
 
----
+### The five facts that make the InfiniteTalk port work (do not lose these)
 
-## Repo map
+1. **InfiniteTalk has NO x0 head.** Its sampler is a hand-written flow-matching Euler on
+   *velocity*: the running `latent` IS `x_t`, and it stores `noise_pred = -v` (velocity,
+   sign-flipped). To get the denoised prediction we DERIVE it:
+   ```
+   sigma  = timesteps[i] / 1000          # timesteps are on a 0..1000 scale
+   x0_pred = x_t + sigma * noise_pred    # (noise_pred is already the negated velocity)
+   ```
+   This is implemented in `scripts/infinitetalk/generate_infinitetalk_ode_pairs_full.py`. It
+   matches OmniAvatar's x0-space convention (CFG-in-velocity ≡ CFG-in-x0 because the map is
+   affine; InfiniteTalk's Euler update ≡ OmniAvatar's rectified-flow re-noise step), so the two
+   models' trajectories are comparable.
 
-```
-scripts/
-  generate_infinitetalk_ode_pairs_full.py   # Stage 1: the ODE-trajectory driver (COMPLETE)
-  run_infinitetalk_ode_sweep_8gpu.sh         # Stage 1: 8-GPU job-sharded launcher (the one used)
-  run_infinitetalk_ode_sweep.sh              # Stage 1: older 4-GPU sample-sharded launcher
-  eval_ode_perceptual_v2_infinitetalk.py     # Stage 2a: decode + perceptual/lip/sync metrics
-  analyze_ode_trajectory_infinitetalk.py     # Stage 2b: latent geometry / velocity / x0-vs-GT
-  run_stage2_infinitetalk.sh                 # Stage 2 orchestration (2a + 2b per config)
-  run_stage2a_metrics_sharded.sh             # Stage 2a metrics, 35-way sharded across 8 GPUs
-  run_stage2b.sh                             # Stage 2b across all 7 configs
-  plot_ode_curves_infinitetalk.py            # Stage 2c: per-step curves, 7 configs overlaid
-  plot_cfg_grid_infinitetalk.py              # Stage 2c: 2-D t×a heatmaps + perception–distortion frontier
-  plot_trajectory_geometry_overlay.py        # Stage 2c: geometry overlay (regenerates results/infinitetalk/figures/trajectory/)
-  plot_default_vs_baseline.py                # Stage 2c: default-vs-ablation, 2 lines/panel, mouth region
-  generate_infinitetalk_euler_jump.py        # Euler-jump straightness probe (COMPLETE — all 7 cells run)
-  run_infinitetalk_euler_jump.sh             #   ↳ 7 factorial cells across 8 GPUs
-  run_stage2_euler_jump.sh                   #   ↳ straightness + Stage 2a (2b opt-in via RUN_2B=1)
-  run_stage2_euler_jump_sharded.sh           #   ↳ same, with the SyncNet-bound metrics leg sharded (the one used)
-  measure_euler_straightness.py              #   ↳ ‖x0_euler − x0_seq‖ per step — THE curvature number
-  plot_euler_jump_factorial.py               #   ↳ per-factorial figures + terminal CSV
-  plotters_to_adapt/                         # original OmniAvatar plotters (reference only)
-results/                                     # ← THE OUTPUT: findings, figures, raw metrics
-  findings.md                                #   written analysis — START HERE for results
-  data/perceptual_t{T}_a{A}.csv              #   per-step metrics, 10 samples × 50 steps × 7 configs
-  data/geometry_t{T}_a{A}.json               #   Stage-2b latent geometry (see re-run caveat above)
-  figures/                                   #   curves, heatmaps, frontier, per_config/, compare_default/
-reference/                                   # COMPLETE original OmniAvatar code (for cross-checking the port)
-  README.md                                  #   what to diff/verify against
-  omniavatar_analysis/                       #   original analysis scripts (our Stage-2 derives from these)
-  fastgen_generation/                        #   original ODE driver + OmniAvatarWan model + FastGen core
-data/recon_sample_names.txt                  # the 10 Hallo3 recon sample names
-data/recon_clips/<hash>.{mp4,wav}            # ALL 10 reference videos + audios (BUNDLED, 7.6MB) — inputs to run
-examples/                                    # our smoke-generation video + decoded frames + 2 input clips
-docs/
-  status-and-todo.md                         # ← START HERE to continue the work
-  cross-model-comparison.md                  # step 6: machine map, OmniAvatar inventory, gaps, caveats
-  euler-jump-experiment.md                   # the ported straightness factorial: design + how to run
-  environment.md                             # conda env, dep pins, gotchas, checkpoint download
-  data.md                                    # Hallo3 sample sources, paths, force-square
-  stage2-audit.md                            # per-script portability classification for 2c
-  architecture-analysis.md                   # deep InfiniteTalk vs OmniAvatar model comparison
-  infinitetalk-ode-port-plan.md              # the working plan doc
-```
+2. **3-call CFG** (default text_scale=5, audio_scale=4):
+   `noise_pred = uncond + text_s·(cond − drop_text) + audio_s·(drop_text − uncond)`.
+   Special case: `text_scale == 1` uses a 2-call drop_audio formula; and `(1,1)` collapses to just
+   the conditional pass (1 forward pass — the no-CFG baseline).
+
+3. **FORCE SQUARE.** InfiniteTalk's `generate_infinitetalk` picks the aspect-ratio bucket closest
+   to each reference image, so non-square references (Hallo3 has 2:3 portraits) give NON-square
+   latents `[16,21,64,96]`. We require square, so the driver hardcodes `target_h=target_w=640`
+   (→ `[16,21,80,80]` for every sample). **This bug bit us once and cost a full sweep — keep it
+   fixed.** Stage-2 GT frame readers must use the same center-crop-to-square (not a stretch
+   resize).
+
+4. **Latent = `[16, 21, 80, 80]`** (16 ch, 21 latent frames, 80×80 latent = 640×640 pixels).
+   Decode ONLY with InfiniteTalk's `WanVAE` (the trajectories live in its VAE space).
+
+5. **This model is SLOW.** ~10 s per DiT forward pass at 480p → ~26 min per 3-call trajectory →
+   the full 7-config × 10-sample × 50-step sweep is **~8 hours on 4 GPUs** (~11 h at the
+   8-GPU job-sharded launcher's actual utilization). No teacache — it's off for clean
+   trajectories. Budget accordingly.
 
 ---
 
-## How to run
+## External dependencies (obtain separately)
 
-Prereqs (see `docs/environment.md` for details): the **InfiniteTalk repo** on `PYTHONPATH`, its
-**weights** downloaded, the **`infinitetalk` conda env**, the **metrics models** (`eval_metrics/`), and
-the **Hallo3 recon clips**. Repo-internal paths are portable (the launchers derive `$REPO` from their
-own location); the launchers' **external** paths — `INFINITETALK_ROOT`, `METRICS_ROOT`, weights, and
-the venv `PY` — are absolute and are currently pointed at the **sweep machine**. Re-point them if you
-run anywhere else; all are overridable by env var.
+| Dependency | What / where |
+|---|---|
+| **Wan2.1-T2V-14B base weights** | `$WEIGHTS_ROOT/Wan2.1-T2V-14B/`: 6 DiT shards (`diffusion_pytorch_model-0000{1..6}-of-00006.safetensors`), `Wan2.1_VAE.pth`, T5 encoder. On this box: `/home/work/.local/hyunbin/LipForcing-release/weights`. |
+| **OmniAvatar teacher checkpoint** | `$TEACHER_CKPT` — 14B V2V (LoRA + audio modules), `step-10500.pt`. |
+| **OmniAvatar MouthWeight checkpoint** | `$MOUTHWEIGHT_CKPT` — `step-6000.pt`. |
+| **Wan2.1-I2V-14B-480P** | `huggingface.co/Wan-AI/Wan2.1-I2V-14B-480P` — InfiniteTalk's base model. |
+| **MeiGen-AI/InfiniteTalk weights** | `huggingface.co/MeiGen-AI/InfiniteTalk` — audio-condition weights, `single/infinitetalk.safetensors`. |
+| **chinese-wav2vec2-base** | `huggingface.co/TencentGameMate/chinese-wav2vec2-base` — InfiniteTalk's audio encoder (needs an extra `model.safetensors` pull from `refs/pr/1`; see `docs/environment.md`). |
+| **InfiniteTalk upstream repo** | `github.com/MeiGen-AI/InfiniteTalk`, put on `PYTHONPATH` via `$INFINITETALK_ROOT`. Pinned at commit **`50aa0a94184315407a991ae804d9b58d6d311ba8`** (the checkout currently at `/home/work/.local/InfiniteTalk` on this box). |
+| **`$METRICS_ROOT` tooling** | `shape_predictor_68_face_landmarks.dat` (dlib mouth landmarks), `checkpoints/auxiliary/syncnet_v2.model` (SyncNet), the `lpips` pip package (in the `omniavatar` env). SyncNet inference code from the `eval`/`syncnet_python` packages. On this box: `/home/work/.local/eval_metrics`. |
+| **Hallo3 recon clips** | BUNDLED at `data/recon_clips/<hash>.{mp4,wav}` (all 10) — no fetch needed. Point `--video_dir`/`--audio_dir` / `$RECON_DATA_DIR` there. |
 
-**Stage 1 — generate trajectories (~11 h, 8 GPUs):**
-```bash
-bash scripts/infinitetalk/run_infinitetalk_ode_sweep_8gpu.sh 50   # 50 = num steps
-# → <OUT>/infinitetalk_t{T}_a{A}/<sample>/{step_NNN_xt.pt, step_NNN_x0.pt, ode_schedule.json, input_latents.pt}
-```
-
-**Stage 2a — perceptual metrics** (two-env: Phase-1 decode in `infinitetalk`, Phase-2 metrics in
-`omniavatar`; `latentsync-metrics` lacks `lpips`):
-```bash
-# Phase 1 (infinitetalk env — WanVAE decode):
-python scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py --phase decode  --traj_dir <cfg_dir> --output_dir <out>
-# Phase 2 (omniavatar env — dlib/lpips/syncnet):
-python scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py --phase metrics --traj_dir <cfg_dir> --output_dir <out>
-python scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py --merge          --traj_dir <cfg_dir> --output_dir <out>
-```
-
-**Stage 2b — latent trajectory analysis** (single env `infinitetalk`, now has WanVAE + dlib):
-```bash
-python scripts/infinitetalk/analyze_ode_trajectory_infinitetalk.py \
-  --traj_dir <cfg_dir> --output_dir <out> --gt_mode encode \
-  --gt_video_dir <hallo3_benchmark_videos> --mask_source ref_decode \
-  --mouth_mask_cache <cache> --shape_predictor <eval_metrics>/shape_predictor_68_face_landmarks.dat
-```
-
-**Stage 2c — plots** (all read either a live analysis root or the committed `results/infinitetalk/data/`):
-```bash
-python scripts/infinitetalk/plot_ode_curves_infinitetalk.py       --analysis_root <root> --output_dir results/infinitetalk/figures
-python scripts/infinitetalk/plot_cfg_grid_infinitetalk.py         --analysis_root results/infinitetalk/data --output_dir results/infinitetalk/figures
-python scripts/infinitetalk/plot_trajectory_geometry_overlay.py   --geometry_dir  results/infinitetalk/data --output_dir results/infinitetalk/figures/trajectory
-python scripts/infinitetalk/plot_default_vs_baseline.py           # default vs (t5,a1) and vs (1,1), mouth region
-```
-
-**Euler-jump factorial — COMPLETE** (all 7 cells, ~12.7 h on 7×A100, both pre-flights passed). Full
-design in `docs/euler-jump-experiment.md`, results in `results/infinitetalk/findings.md` § "ODE straightness".
-Measures ODE straightness by jumping from step 0 to each noise level and re-predicting. Two
-overlapping 2×2s over (step-0 CFG) × (teacher CFG) with `on=(5,4)`, `noaudio=(5,1)`, `nocfg=(1,1)`
-— 7 distinct cells. Requires the Stage-1 trajectories for those three configs (all in the sweep).
-```bash
-bash scripts/infinitetalk/run_infinitetalk_euler_jump.sh 50        # generate, 7 cells across 8 GPUs
-bash scripts/infinitetalk/run_stage2_euler_jump_sharded.sh all     # straightness + Stage 2a; shards the SyncNet leg
-                                                      #   (run_stage2_euler_jump.sh = same, unsharded, ~5x slower)
-python scripts/infinitetalk/plot_euler_jump_factorial.py --euler_analysis_root ode_analysis_euler_jump \
-    --sequential_analysis_root ode_analysis_infinitetalk --output_dir results/infinitetalk/figures/euler_jump
-```
-The headline curvature number is `‖x0_euler − x0_sequential‖` per step, from
-`scripts/common/measure_euler_straightness.py` (run automatically per cell). It reads only the saved `x0`
-tensors — no VAE/GT/model — so it takes seconds and does **not** depend on the Stage-2b re-run. Its
-output (`results/infinitetalk/data/straightness_*.json`) is committed; the per-cell perceptual `metrics.csv` files
-are **not** (gitignored) — see gap A in `docs/cross-model-comparison.md`.
-
-If re-running from scratch, **smoke-test one cell first**: `bash scripts/infinitetalk/run_stage2_euler_jump.sh euler_on_on 0`.
-Its step 0 should land very close to the sequential trajectory's — divergence means the conditioning or
-schedule doesn't match. (When this was run for real it passed at `rel_l2 = 2.3e-3`, which is what
-validated the shared `prepare_conditioning()` / `predict_noise()` refactor of the Stage-1 driver.)
+See `docs/environment.md` and `docs/data.md` for exact setup and every path to re-point.
 
 ---
 
 ## Example media (`examples/`)
 
-- `videos/infinitetalk_smoke_generation.mp4` — a full 20-step InfiniteTalk generation (proof the stack
-  works end-to-end).
-- `frames/ode_x0_decoded_frame*.png` — a decoded `x0` from a real ODE trajectory (coherent face at 6
-  steps — validates the x0 derivation).
-- `inputs/*.mp4|.wav` — **two Hallo3 recon clips** for quick tests. **All 10** are bundled in `data/recon_clips/`.
-  *Provenance:* these are from the Hallo3 validation set; keep private / obtain the full set from the
-  dataset if redistributing.
-
----
-
-## External dependencies this repo does NOT bundle (obtain separately)
-
-| Dependency | What / where |
-|---|---|
-| **InfiniteTalk repo** | `github.com/MeiGen-AI/InfiniteTalk` — the driver subclasses `wan.multitalk.InfiniteTalkPipeline`; put on `PYTHONPATH` (`sys.path.insert(0, INFINITETALK_ROOT)`) |
-| **Wan2.1-I2V-14B-480P** | `huggingface.co/Wan-AI/Wan2.1-I2V-14B-480P` (base model) |
-| **MeiGen-AI/InfiniteTalk** | `huggingface.co/MeiGen-AI/InfiniteTalk` (audio-condition weights: `single/infinitetalk.safetensors`) |
-| **chinese-wav2vec2-base** | `huggingface.co/TencentGameMate/chinese-wav2vec2-base` (audio encoder) |
-| **Metrics models** | `eval_metrics/` on the original machine: `shape_predictor_68_face_landmarks.dat`, `checkpoints/auxiliary/syncnet_v2.model`, plus `lpips` pip pkg. SyncNet eval code from the `eval`/`syncnet_python` packages. |
-| **Hallo3 recon clips** | BUNDLED in this repo at `data/recon_clips/<hash>.{mp4,wav}` (all 10). Point `--video_dir` and `--audio_dir` there |
-
-See `docs/environment.md` and `docs/data.md` for exact setup and the paths to re-point.
+- `videos/infinitetalk_smoke_generation.mp4` — a full 20-step InfiniteTalk generation (proof the
+  stack works end-to-end).
+- `frames/ode_x0_decoded_frame*.png` — a decoded `x0` from a real ODE trajectory (coherent face at
+  6 steps — validates the x0 derivation).
+- `inputs/*.mp4|.wav` — 2 Hallo3 recon clips for quick tests. **All 10** are bundled in
+  `data/recon_clips/`. *Provenance:* these are from the Hallo3 validation set; keep private /
+  obtain the full set from the dataset if redistributing.
