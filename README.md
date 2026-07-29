@@ -24,7 +24,7 @@ can be finished on another machine (with Claude Code).
 | **Stage 2c — plotters** | ✅ complete — per-step curves, 2-D heatmaps, perception–distortion frontier, per-config, default-vs-baseline |
 | New **2-D CFG heatmap** view | ✅ `results/figures/cfg_grid_heatmaps_mouth.png` |
 | **Euler-jump factorial** (`scripts/generate_infinitetalk_euler_jump.py`) | ✅ **complete** — 7 cells, ~12.7 h on 7×A100; both pre-flights passed; see `docs/euler-jump-experiment.md` |
-| Cross-model comparison vs OmniAvatar | 🔴 not started (original TODO step 6) |
+| Cross-model comparison vs OmniAvatar | 🔴 not started — **no longer blocked**; read `docs/cross-model-comparison.md` |
 
 **Findings + figures are in `results/`** — start with `results/findings.md`.
 
@@ -52,7 +52,10 @@ For the OmniAvatar audio-avatar model we ran a two-stage study:
    The research question is how CFG bends the ODE trajectory and trades off quality.
 
 The OmniAvatar results live at `/home/work/.local/ode_full_trajectories` (generation) and
-`/home/work/.local/ode_analysis` (analysis) on the original machine. The generation code was in a
+`/home/work/.local/ode_analysis` (analysis) on the **OmniAvatar machine** — the box whose repo root is
+`/home/work/.local/OmniAvatar`, not the machine the InfiniteTalk sweep ran on. Verified present and
+diffable against this repo's CSVs on 2026-07-29; inventory and gaps in
+`docs/cross-model-comparison.md`. The generation code was in a
 separate repo, **FastGen** (`fastgen.networks.OmniAvatar.network.OmniAvatarWan` +
 `scripts/generate_omniavatar_ode_pairs_full.py`); the analysis code was in the **OmniAvatar** repo's
 `scripts/` (`eval_ode_perceptual_v2.py`, `analyze_ode_trajectory.py`, `plot_*.py`). Both originals are
@@ -130,9 +133,10 @@ scripts/
   plot_cfg_grid_infinitetalk.py              # Stage 2c: 2-D t×a heatmaps + perception–distortion frontier
   plot_trajectory_geometry_overlay.py        # Stage 2c: geometry overlay (regenerates results/figures/trajectory/)
   plot_default_vs_baseline.py                # Stage 2c: default-vs-ablation, 2 lines/panel, mouth region
-  generate_infinitetalk_euler_jump.py        # Euler-jump straightness probe (PORTED, NEVER RUN)
+  generate_infinitetalk_euler_jump.py        # Euler-jump straightness probe (COMPLETE — all 7 cells run)
   run_infinitetalk_euler_jump.sh             #   ↳ 7 factorial cells across 8 GPUs
   run_stage2_euler_jump.sh                   #   ↳ straightness + Stage 2a (2b opt-in via RUN_2B=1)
+  run_stage2_euler_jump_sharded.sh           #   ↳ same, with the SyncNet-bound metrics leg sharded (the one used)
   measure_euler_straightness.py              #   ↳ ‖x0_euler − x0_seq‖ per step — THE curvature number
   plot_euler_jump_factorial.py               #   ↳ per-factorial figures + terminal CSV
   plotters_to_adapt/                         # original OmniAvatar plotters (reference only)
@@ -150,6 +154,7 @@ data/recon_clips/<hash>.{mp4,wav}            # ALL 10 reference videos + audios 
 examples/                                    # our smoke-generation video + decoded frames + 2 input clips
 docs/
   status-and-todo.md                         # ← START HERE to continue the work
+  cross-model-comparison.md                  # step 6: machine map, OmniAvatar inventory, gaps, caveats
   euler-jump-experiment.md                   # the ported straightness factorial: design + how to run
   environment.md                             # conda env, dep pins, gotchas, checkpoint download
   data.md                                    # Hallo3 sample sources, paths, force-square
@@ -201,23 +206,28 @@ python scripts/plot_trajectory_geometry_overlay.py   --geometry_dir  results/dat
 python scripts/plot_default_vs_baseline.py           # default vs (t5,a1) and vs (1,1), mouth region
 ```
 
-**Euler-jump factorial — PORTED BUT NEVER RUN.** Full design in `docs/euler-jump-experiment.md`.
+**Euler-jump factorial — COMPLETE** (all 7 cells, ~12.7 h on 7×A100, both pre-flights passed). Full
+design in `docs/euler-jump-experiment.md`, results in `results/findings.md` § "ODE straightness".
 Measures ODE straightness by jumping from step 0 to each noise level and re-predicting. Two
 overlapping 2×2s over (step-0 CFG) × (teacher CFG) with `on=(5,4)`, `noaudio=(5,1)`, `nocfg=(1,1)`
 — 7 distinct cells. Requires the Stage-1 trajectories for those three configs (all in the sweep).
 ```bash
-bash scripts/run_infinitetalk_euler_jump.sh 50   # generate, 7 cells across 8 GPUs
-bash scripts/run_stage2_euler_jump.sh all        # straightness + Stage 2a (2b off; RUN_2B=1 to enable)
+bash scripts/run_infinitetalk_euler_jump.sh 50        # generate, 7 cells across 8 GPUs
+bash scripts/run_stage2_euler_jump_sharded.sh all     # straightness + Stage 2a; shards the SyncNet leg
+                                                      #   (run_stage2_euler_jump.sh = same, unsharded, ~5x slower)
 python scripts/plot_euler_jump_factorial.py --euler_analysis_root ode_analysis_euler_jump \
     --sequential_analysis_root ode_analysis_infinitetalk --output_dir results/figures/euler_jump
 ```
 The headline curvature number is `‖x0_euler − x0_sequential‖` per step, from
 `scripts/measure_euler_straightness.py` (run automatically per cell). It reads only the saved `x0`
-tensors — no VAE/GT/model — so it takes seconds and does **not** depend on the Stage-2b re-run.
-**Smoke-test one cell first:** `bash scripts/run_stage2_euler_jump.sh euler_on_on 0`. Its step 0
-should land very close to the sequential trajectory's — divergence means the conditioning or
-schedule doesn't match. This also exercises the `prepare_conditioning()` / `predict_noise()`
-refactor of the Stage-1 driver, which is shared by both paths and has not been run against the model.
+tensors — no VAE/GT/model — so it takes seconds and does **not** depend on the Stage-2b re-run. Its
+output (`results/data/straightness_*.json`) is committed; the per-cell perceptual `metrics.csv` files
+are **not** (gitignored) — see gap A in `docs/cross-model-comparison.md`.
+
+If re-running from scratch, **smoke-test one cell first**: `bash scripts/run_stage2_euler_jump.sh euler_on_on 0`.
+Its step 0 should land very close to the sequential trajectory's — divergence means the conditioning or
+schedule doesn't match. (When this was run for real it passed at `rel_l2 = 2.3e-3`, which is what
+validated the shared `prepare_conditioning()` / `predict_noise()` refactor of the Stage-1 driver.)
 
 ---
 

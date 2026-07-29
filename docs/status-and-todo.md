@@ -13,10 +13,14 @@ first for the five load-bearing facts, then this.
 >   Euler-jump work, which is now finished — so this is next. Stage 2b is correspondingly off by
 >   default in the Euler Stage-2 launchers (`RUN_2B=1` enables it). The perceptual CSVs are
 >   unaffected by either fix.
-> - **Step 6, the OmniAvatar cross-model comparison** — still blocked on the OmniAvatar
->   `ode_analysis/` results, which are not on this machine. Note the Euler-jump Factorial B cells
->   are a 1:1 replication of OmniAvatar's four `14B_textaudio_euler_*` CSVs, so they are the
->   natural first thing to diff once those results are recovered.
+> - **Step 6, the OmniAvatar cross-model comparison** — **UNBLOCKED as of 2026-07-29**, not started.
+>   The OmniAvatar results are absent from the *sweep* machine but present and complete on the
+>   **OmniAvatar machine** (`/home/work/.local/{ode_analysis,ode_full_trajectories}`), where they were
+>   verified schema- and sample-compatible with this repo's CSVs. The Euler-jump Factorial B cells are
+>   a 1:1 replication of OmniAvatar's four `14B_textaudio_euler_*` CSVs and are the natural first diff.
+>   One transfer is required first: the per-cell euler `metrics.csv` files are gitignored, so only
+>   terminal-step values crossed over. **Read `docs/cross-model-comparison.md`** — machine map,
+>   inventory, the three gaps, and the normalization caveats.
 >
 > **Euler-jump summary:** 7 cells × 10 samples × 50 landing steps, ~12.7 h on 7×A100. Both
 > pre-flight checks passed. Curvature is created by *audio* guidance at step 0 (text contributes
@@ -61,10 +65,21 @@ first for the five load-bearing facts, then this.
   CSVs and the Euler-jump results are unaffected.
 - **Stage 2b was not run for the Euler-jump cells at all** (deliberate — `RUN_2B=1` enables it).
   It measures distance-to-GT, which is secondary to distance-to-sequential for that experiment.
-- **Cross-model comparison vs OmniAvatar** (original step 6) — blocked on the OmniAvatar
-  `ode_analysis/` results, which are not on this machine.
+- **Cross-model comparison vs OmniAvatar** (original step 6) — not started, but no longer blocked:
+  the OmniAvatar results are on the OmniAvatar machine. Needs the 7 euler `metrics.csv` files moved
+  off the sweep machine (~3.5 MB) before the Factorial-B diff can be done at per-step granularity.
+  See `docs/cross-model-comparison.md`.
+- **`results/data/` does not contain per-step euler perceptual metrics.** Only
+  `straightness_*.json` (curvature) and a terminal-step-only, mouth-only
+  `figures/euler_jump/euler_terminal_values.csv` are committed. The per-cell
+  `ode_analysis_euler_jump/euler_*/perceptual_v2/metrics.csv` are gitignored and exist only on the
+  sweep machine — and they hold the step 11–15 peak that the terminal values miss entirely.
 
 ## HOW TO PROCEED (ordered)
+
+> **Steps 0–5b below have all been executed** — they are kept as the runbook for reproducing the study
+> on a fresh machine, not as a to-do list. The only outstanding items are the Stage-2b re-run (top of
+> this doc) and **step 6**, which has been rewritten to reflect its unblocked state.
 
 ### 0. Re-point paths
 Repo-internal paths are now portable: the launcher derives `$REPO` from its own location and reads
@@ -126,9 +141,16 @@ python scripts/plot_euler_jump_factorial.py ...     # figures
 Prereq: Stage-1 trajectories for t5.0_a4.0, t5.0_a1.0, t1.0_a1.0 (all in the standard sweep).
 **Smoke-test `euler_on_on` first** — its step 0 should land very close to the sequential trajectory's.
 
-### 6. Compare against OmniAvatar
+### 6. Compare against OmniAvatar  ← THE REMAINING WORK
 The point of the study: put InfiniteTalk's ODE-straightness/quality-vs-CFG next to OmniAvatar's
-(`/home/work/.local/ode_analysis` on the original machine). Same 10 Hallo3 identities, same step count.
+(`/home/work/.local/ode_analysis`, on the **OmniAvatar machine**). Same 10 Hallo3 identities, same step
+count, same CSV schema — all three verified 2026-07-29.
+
+**`docs/cross-model-comparison.md` is the handoff doc for this step.** It covers which machine holds
+what, the full OmniAvatar-side inventory, the three gaps (missing per-step euler CSVs; stale Stage-2b;
+no OmniAvatar straightness counterpart, because those runs never saved latents and the cfg-4.5
+trajectory dump is gone), which OmniAvatar experiment families have no InfiniteTalk analogue, and why
+sharpness/pixel-MSE must be normalized per model before any cross-model claim.
 
 ## Known issues / watch-list
 - **Timing**: ~26 min/trajectory; the (1,1) config is 3× faster (1-pass). Plan for ~8 h/sweep.

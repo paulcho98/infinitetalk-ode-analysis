@@ -14,8 +14,11 @@ change with step and with CFG.
   and **SyncNet Sync-C / Sync-D** (lip-sync), over a dlib mouth bbox and the full 640² frame.
   GT baseline (real validation video) provided for the no-reference metrics.
 
-> Note: the OmniAvatar analysis results were not available on this machine, so this is a standalone
-> InfiniteTalk analysis (the cross-model comparison is left for when those results are recovered).
+> Note: everything below is a **standalone InfiniteTalk analysis** — the OmniAvatar results were not
+> available on the machine the sweep ran on. They *are* available on the OmniAvatar machine
+> (`/home/work/.local/ode_analysis`), and were verified sample- and schema-compatible with these CSVs
+> on 2026-07-29, so the cross-model comparison is unblocked but **not yet done**; no number in this
+> document has been compared against OmniAvatar. See `docs/cross-model-comparison.md`.
 
 ---
 

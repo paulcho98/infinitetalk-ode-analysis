@@ -66,8 +66,10 @@ aliases and run **two overlapping 2×2s**:
 
 ### Replication target — the OmniAvatar 2×2
 
-Factorial B maps 1:1 onto the four OmniAvatar CSVs this experiment exists to reproduce
-(`/home/work/.local/ode_analysis/all_csvs/`, also in the `paper_compat/` bundle):
+Factorial B maps 1:1 onto the four OmniAvatar CSVs this experiment exists to reproduce, which live at
+`/home/work/.local/ode_analysis/all_csvs/` **on the OmniAvatar machine** (confirmed present 2026-07-29;
+there is no `paper_compat/` bundle on disk — earlier drafts of this doc referenced one that does not
+exist):
 
 | OmniAvatar CSV | trace (s₀ → s_t) | regime | our cell |
 |---|---|---|---|
@@ -82,8 +84,8 @@ the outputs are directly comparable to those CSVs.
 
 > **`fresh_noise` is NOT part of this.** `generate_single_step_predictions.py` has a second mode
 > (`x_t = (1-t)·x0_gt + t·eps`) which produced a separate `fresh_noise/` dir and its own CSV. It is
-> **not** one of the four above and is **excluded from the `paper_compat/` bundle**, so it is not
-> required to replicate this result and has deliberately not been ported.
+> **not** one of the four above, so it is not required to replicate this result and has deliberately
+> not been ported. (OmniAvatar's `14B_textaudio_fresh_noise.csv` therefore has no counterpart here.)
 
 The `on/on` cell is shared, so this is **7 distinct runs, not 8**:
 
