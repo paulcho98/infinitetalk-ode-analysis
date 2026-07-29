@@ -19,11 +19,11 @@ Reports, per step, for each region:
     rel_l2   ‖x0_euler − x0_seq‖ / ‖x0_seq‖      <- scale-free; the headline curvature number
 
 Usage:
-    python scripts/measure_euler_straightness.py \
+    python scripts/common/measure_euler_straightness.py \
         --euler_dir      ode_euler_jump_infinitetalk/euler_on_on \
         --sequential_dir ode_full_trajectories_infinitetalk/infinitetalk_t5.0_a4.0 \
         --mouth_mask_cache ode_analysis_infinitetalk/_mouth_mask_cache \
-        --output_dir results/data --tag on_on
+        --output_dir results/infinitetalk/data --tag on_on
 """
 import argparse
 import json
