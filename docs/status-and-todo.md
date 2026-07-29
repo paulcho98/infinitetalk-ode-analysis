@@ -192,6 +192,21 @@ Full detail (why it matters — the terminal-step-only data already committed mi
 11–15 Sync-C peak entirely) in `docs/cross-model-comparison.md` gap A. **Unblocks:** per-step
 Factorial-B diff against OmniAvatar's `14B_textaudio_euler_*` CSVs; independent of (a) and (b).
 
+**(d) Task 18's Stage-1 2-step generation smoke + `--max_steps` flag.** The original brief asked
+for a 2-step `generate_omniavatar_ode_pairs_full.py` smoke test against the OmniAvatar teacher
+checkpoint (`$TEACHER_CKPT` = `/home/work/output_omniavatar_v2v_phase2/step-10500.pt`) plus adding
+a `--max_steps` slicing flag to support it. Both are blocked: `step-10500.pt` no longer exists on
+this box (backed up to HuggingFace and cleaned locally), and its companion
+`neg_text_emb.pt` (`$NEG_TEXT_EMB`) is also gone, though that one is regenerable via T5
+encode-empty-string CFG encoding. Re-run once `step-10500.pt` (and, if needed, `neg_text_emb.pt`)
+are restored from the HF backup. In the meantime, `tests/test_omniavatar_wan_load.py` verifies
+the vendored `OmniAvatarWan`/`WanModel` architecture constructs and loads the base
+Wan2.1-T2V-14B weights correctly (14,294,081,696 params; 42 missing keys, all audio-module
+names — `audio_proj`/`audio_cond_projs` — none unexpected), so the model-loading half of Task 18
+is confirmed sound independent of the teacher-checkpoint overlay. **Unblocks:** the teacher
+generation smoke and, transitively, any Stage-1 re-runs that need the LoRA+audio overlay on this
+box.
+
 ## Known issues / watch-list
 - **Timing**: ~26 min/trajectory; the (1,1) config is 3× faster (1-pass). Plan for ~8 h/sweep.
 - **Env-split for 2a**: `latentsync-metrics` env lacks `lpips`; use `omniavatar` for Phase-2 metrics.
