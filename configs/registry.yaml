@@ -21,8 +21,10 @@ metric_rules:      # cross-model comparability
   cfg_diff_relative: diagnostic_only   # spatial_probe family only; not present in InfiniteTalk data
   noise_floor: diagnostic_only         # spatial_probe family only; not present in InfiniteTalk data
 experiments:
+  # `baseline:` = per-step normalizer for metrics that have no GT self-row (pixel_mse/ssim/lpips/lmd,
+  # which are distances *to* GT). Only set on the two live comparison pairs; see compare_models.py.
   # --- OmniAvatar, text+audio CFG drop mode ---
-  - {id: omni_ta_default,        model: omniavatar, family: trajectory,  guidance: {cfg: 4.5}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_perceptual_v2.csv}
+  - {id: omni_ta_default,        model: omniavatar, family: trajectory,  guidance: {cfg: 4.5}, drop: text+audio, baseline: omni_ta_nocfg, csv: results/omniavatar/data/14B_textaudio_perceptual_v2.csv}
   - {id: omni_ta_nocfg,          model: omniavatar, family: trajectory,  guidance: {cfg: 1.0}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_trajectory_nocfg.csv}
   - {id: omni_ta_cfg1.0,         model: omniavatar, family: trajectory,  guidance: {cfg: 1.0}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_cfg1.0_trajectory.csv}
   - {id: omni_ta_cfg3.0,         model: omniavatar, family: trajectory,  guidance: {cfg: 3.0}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_cfg3.0_trajectory.csv}
@@ -57,7 +59,7 @@ experiments:
   - {id: it_t2.5_a2.0,           model: infinitetalk, family: trajectory, guidance: {text: 2.5, audio: 2.0}, csv: results/infinitetalk/data/perceptual_t2.5_a2.0.csv}
   - {id: it_t5.0_a1.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 1.0}, csv: results/infinitetalk/data/perceptual_t5.0_a1.0.csv}
   - {id: it_t5.0_a2.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 2.0}, csv: results/infinitetalk/data/perceptual_t5.0_a2.0.csv}
-  - {id: it_t5.0_a4.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 4.0}, csv: results/infinitetalk/data/perceptual_t5.0_a4.0.csv}
+  - {id: it_t5.0_a4.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 4.0}, baseline: it_t1.0_a1.0, csv: results/infinitetalk/data/perceptual_t5.0_a4.0.csv}
   - {id: it_t5.0_a6.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 6.0}, csv: results/infinitetalk/data/perceptual_t5.0_a6.0.csv}
   - {id: it_t7.5_a6.0,           model: infinitetalk, family: trajectory, guidance: {text: 7.5, audio: 6.0}, csv: results/infinitetalk/data/perceptual_t7.5_a6.0.csv}
   # InfiniteTalk per-step euler CSVs: GAP A — on the sweep machine, not yet committed

@@ -80,6 +80,87 @@ def test_unknown_rules_pass_through_and_missing_gt_is_nan(tmp_path):
     assert set(df["region"]) == {"mouth", "upper_face", "full"}
 
 
+def _registry_with_baseline(main_csv, base_csv, tmp_path):
+    """Pair where the omniavatar side declares a no-CFG baseline and the infinitetalk side does not."""
+    base_path = str(base_csv) if base_csv is not None else str(tmp_path / "gone.csv")
+    return {
+        "metric_rules": {"sync_c": "face_value"},
+        "experiments": [
+            {"id": "ea", "model": "omniavatar", "csv": str(main_csv), "baseline": "base"},
+            {"id": "eb", "model": "infinitetalk", "csv": str(main_csv)},
+            {"id": "base", "model": "omniavatar", "csv": base_path},
+        ],
+        "comparisons": [{"name": "p", "omniavatar": "ea", "infinitetalk": "eb"}],
+    }
+
+
+def test_nocfg_baseline_normalizes_metrics_without_a_gt_row(tmp_path):
+    """Spec: each model normalizes to its own GT row *or its no-CFG baseline*.
+
+    pixel_mse/ssim/lpips/lmd are distances to GT, so no GT self-row can exist; they must fall
+    back to `value / baseline_value` at the same (step, sample, metric, region). GT-row
+    normalization stays first-choice wherever a GT row does exist.
+    """
+    main, base = tmp_path / "main.csv", tmp_path / "base.csv"
+    main.write_text("\n".join([
+        "step,t,sample,metric,region,value",
+        "-1,gt,s1,sync_c,mouth,8.0",
+        "0,0.5,s1,sync_c,mouth,4.0",
+        "0,0.5,s1,pixel_mse,mouth,0.6",   # baseline 0.3 -> 2.0
+        "1,0.4,s1,pixel_mse,mouth,0.4",   # baseline 0.0 -> NaN (never inf)
+        "2,0.3,s1,pixel_mse,mouth,0.2",   # no baseline row  -> NaN
+    ]))
+    base.write_text("\n".join([
+        "step,t,sample,metric,region,value",
+        "-1,gt,s1,sync_c,mouth,99.0",
+        "0,0.5,s1,sync_c,mouth,2.0",      # must NOT be used: sync_c has its own GT row
+        "0,0.5,s1,pixel_mse,mouth,0.3",
+        "1,0.4,s1,pixel_mse,mouth,0.0",
+    ]))
+    df = build_comparison(_registry_with_baseline(main, base, tmp_path), "p")
+
+    omni = df[df.model == "omniavatar"].set_index(["metric", "step"])["value_norm"]
+    assert omni[("pixel_mse", 0)] == 2.0            # 0.6 / baseline 0.3
+    assert pd.isna(omni[("pixel_mse", 1)])          # baseline value 0 -> NaN, not inf
+    assert pd.isna(omni[("pixel_mse", 2)])          # baseline row missing -> NaN
+    assert omni[("sync_c", 0)] == 0.5               # 4.0 / GT 8.0, NOT 4.0 / baseline 2.0
+
+    # the side without a `baseline:` key keeps NaN for GT-less metrics
+    it = df[df.model == "infinitetalk"]
+    assert it[it.metric == "pixel_mse"]["value_norm"].isna().all()
+    # the baseline experiment is a normalizer only; it is not emitted as its own model rows
+    assert set(df["experiment_id"]) == {"ea", "eb"}
+
+
+def test_missing_baseline_csv_warns_but_does_not_skip_the_pair(tmp_path, capsys):
+    main = tmp_path / "main.csv"
+    main.write_text("step,t,sample,metric,region,value\n0,0.5,s1,pixel_mse,mouth,0.6\n")
+    df = build_comparison(_registry_with_baseline(main, None, tmp_path), "p")
+    assert df is not None
+    assert df["value_norm"].isna().all()
+    assert "baseline" in capsys.readouterr().out.lower()
+
+
+def test_zero_gt_value_yields_nan_not_inf(tmp_path):
+    csv = tmp_path / "a.csv"
+    csv.write_text("\n".join([
+        "step,t,sample,metric,region,value",
+        "-1,gt,s1,sharpness,mouth,0.0",
+        "0,0.5,s1,sharpness,mouth,5.0",
+    ]))
+    registry = {
+        "metric_rules": {},
+        "experiments": [
+            {"id": "ea", "model": "omniavatar", "csv": str(csv)},
+            {"id": "eb", "model": "infinitetalk", "csv": str(csv)},
+        ],
+        "comparisons": [{"name": "p", "omniavatar": "ea", "infinitetalk": "eb"}],
+    }
+    df = build_comparison(registry, "p")
+    assert df["value_norm"].isna().all()
+    assert not (df["value_norm"] == float("inf")).any()
+
+
 def test_load_registry_reads_yaml(tmp_path):
     p = tmp_path / "reg.yaml"
     p.write_text("schema_version: 1\nmetric_rules: {sync_c: face_value}\n")
