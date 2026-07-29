@@ -1,0 +1,74 @@
+schema_version: 1
+models:
+  omniavatar:
+    preprocessing: {resolution: 512, crop: pre-aligned latentsync crop, mask: latentsync_png,
+                    regions: [mouth, upper_face, full], gt_row: -1}
+  infinitetalk:
+    preprocessing: {resolution: 640, crop: force-square resize, mask: dlib_bbox,
+                    regions: [mouth, full], gt_row: -1}
+  latentsync:      # results-only: no generation/analysis scripts in this repo
+    preprocessing: {resolution: 512, crop: pre-aligned latentsync crop, mask: latentsync_png,
+                    regions: [mouth, upper_face, full], gt_row: -1}
+metric_rules:      # cross-model comparability
+  sync_c: face_value
+  sync_d: face_value
+  pixel_mse: normalized_only
+  ssim: normalized_only
+  lpips: normalized_only
+  lmd: normalized_only
+  sharpness: normalized_only
+  cfg_diff_raw: diagnostic_only        # spatial_probe family only; not present in InfiniteTalk data
+  cfg_diff_relative: diagnostic_only   # spatial_probe family only; not present in InfiniteTalk data
+  noise_floor: diagnostic_only         # spatial_probe family only; not present in InfiniteTalk data
+experiments:
+  # --- OmniAvatar, text+audio CFG drop mode ---
+  - {id: omni_ta_default,        model: omniavatar, family: trajectory,  guidance: {cfg: 4.5}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_perceptual_v2.csv}
+  - {id: omni_ta_nocfg,          model: omniavatar, family: trajectory,  guidance: {cfg: 1.0}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_trajectory_nocfg.csv}
+  - {id: omni_ta_cfg1.0,         model: omniavatar, family: trajectory,  guidance: {cfg: 1.0}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_cfg1.0_trajectory.csv}
+  - {id: omni_ta_cfg3.0,         model: omniavatar, family: trajectory,  guidance: {cfg: 3.0}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_cfg3.0_trajectory.csv}
+  - {id: omni_ta_cfg6.0,         model: omniavatar, family: trajectory,  guidance: {cfg: 6.0}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_cfg6.0_trajectory.csv}
+  - {id: omni_ta_euler_on_on,    model: omniavatar, family: euler_jump,  knobs: {step0: cfg45, teacher: cfg45}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_euler_cfg45_cfg45.csv}
+  - {id: omni_ta_euler_nocfg_on, model: omniavatar, family: euler_jump,  knobs: {step0: nocfg, teacher: cfg45}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_euler_nocfg_cfg45.csv}
+  - {id: omni_ta_euler_nocfg_nocfg, model: omniavatar, family: euler_jump, knobs: {step0: nocfg, teacher: nocfg}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_euler_nocfg_nocfg.csv}
+  - {id: omni_ta_euler_on_nocfg, model: omniavatar, family: euler_jump,  knobs: {step0: cfg45, teacher: nocfg}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_euler_cfg45_nocfg.csv}
+  - {id: omni_ta_fresh_noise,    model: omniavatar, family: fresh_noise, guidance: {cfg: 4.5}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_fresh_noise.csv}
+  - {id: omni_ta_schedule25,     model: omniavatar, family: scheduled_cfg, knobs: {tau: 25},   drop: text+audio, csv: results/omniavatar/data/14B_textaudio_schedule25.csv}
+  # --- OmniAvatar, audio-only CFG drop mode (same 7 shapes) ---
+  - {id: omni_ao_default,        model: omniavatar, family: trajectory,  guidance: {cfg: 4.5}, drop: audio-only, csv: results/omniavatar/data/14B_audioonly_perceptual_v2.csv}
+  - {id: omni_ao_euler_on_on,    model: omniavatar, family: euler_jump,  knobs: {step0: cfg45, teacher: cfg45}, drop: audio-only, csv: results/omniavatar/data/14B_audioonly_euler_cfg45_cfg45.csv}
+  - {id: omni_ao_euler_nocfg_on, model: omniavatar, family: euler_jump,  knobs: {step0: nocfg, teacher: cfg45}, drop: audio-only, csv: results/omniavatar/data/14B_audioonly_euler_nocfg_cfg45.csv}
+  - {id: omni_ao_euler_nocfg_nocfg, model: omniavatar, family: euler_jump, knobs: {step0: nocfg, teacher: nocfg}, drop: audio-only, csv: results/omniavatar/data/14B_audioonly_euler_nocfg_nocfg.csv}
+  - {id: omni_ao_euler_on_nocfg, model: omniavatar, family: euler_jump,  knobs: {step0: cfg45, teacher: nocfg}, drop: audio-only, csv: results/omniavatar/data/14B_audioonly_euler_cfg45_nocfg.csv}
+  - {id: omni_ao_fresh_noise,    model: omniavatar, family: fresh_noise, guidance: {cfg: 4.5}, drop: audio-only, csv: results/omniavatar/data/14B_audioonly_fresh_noise.csv}
+  - {id: omni_ao_schedule25,     model: omniavatar, family: scheduled_cfg, knobs: {tau: 25},   drop: audio-only, csv: results/omniavatar/data/14B_audioonly_schedule25.csv}
+  # --- Spatial probe (OmniAvatar diagnostics, results-only for comparison purposes) ---
+  - {id: omni_spatial_fresh,     model: omniavatar, family: spatial_probe, results_only: true, csv: results/omniavatar/data/spatial_probe_fresh_noise.csv}
+  - {id: omni_spatial_cfg,       model: omniavatar, family: spatial_probe, results_only: true, csv: results/omniavatar/data/spatial_probe_trajectory_cfg.csv}
+  - {id: omni_spatial_nocfg,     model: omniavatar, family: spatial_probe, results_only: true, csv: results/omniavatar/data/spatial_probe_trajectory_nocfg.csv}
+  # --- LatentSync (results-only) ---
+  - {id: ls_default,             model: latentsync, family: trajectory,  results_only: true, csv: results/omniavatar/data/latentsync_perceptual_v2.csv}
+  - {id: ls_nocfg,               model: latentsync, family: trajectory,  results_only: true, csv: results/omniavatar/data/latentsync_trajectory_nocfg.csv}
+  - {id: ls_euler_on_on,         model: latentsync, family: euler_jump,  results_only: true, csv: results/omniavatar/data/latentsync_euler_cfg15_cfg15.csv}
+  - {id: ls_euler_nocfg_on,      model: latentsync, family: euler_jump,  results_only: true, csv: results/omniavatar/data/latentsync_euler_nocfg_cfg15.csv}
+  - {id: ls_euler_nocfg_nocfg,   model: latentsync, family: euler_jump,  results_only: true, csv: results/omniavatar/data/latentsync_euler_nocfg_nocfg.csv}
+  - {id: ls_fresh_noise,         model: latentsync, family: fresh_noise, results_only: true, csv: results/omniavatar/data/latentsync_fresh_noise.csv}
+  # --- InfiniteTalk 7-config grid ---
+  - {id: it_t1.0_a1.0,           model: infinitetalk, family: trajectory, guidance: {text: 1.0, audio: 1.0}, csv: results/infinitetalk/data/perceptual_t1.0_a1.0.csv}
+  - {id: it_t2.5_a2.0,           model: infinitetalk, family: trajectory, guidance: {text: 2.5, audio: 2.0}, csv: results/infinitetalk/data/perceptual_t2.5_a2.0.csv}
+  - {id: it_t5.0_a1.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 1.0}, csv: results/infinitetalk/data/perceptual_t5.0_a1.0.csv}
+  - {id: it_t5.0_a2.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 2.0}, csv: results/infinitetalk/data/perceptual_t5.0_a2.0.csv}
+  - {id: it_t5.0_a4.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 4.0}, csv: results/infinitetalk/data/perceptual_t5.0_a4.0.csv}
+  - {id: it_t5.0_a6.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 6.0}, csv: results/infinitetalk/data/perceptual_t5.0_a6.0.csv}
+  - {id: it_t7.5_a6.0,           model: infinitetalk, family: trajectory, guidance: {text: 7.5, audio: 6.0}, csv: results/infinitetalk/data/perceptual_t7.5_a6.0.csv}
+  # InfiniteTalk per-step euler CSVs: GAP A — on the sweep machine, not yet committed
+  - {id: it_euler_on_on,         model: infinitetalk, family: euler_jump, knobs: {step0: on, teacher: on},       csv: results/infinitetalk/data/euler_on_on_metrics.csv, status: missing_sweep_machine}
+  - {id: it_euler_nocfg_on,      model: infinitetalk, family: euler_jump, knobs: {step0: nocfg, teacher: on},    csv: results/infinitetalk/data/euler_nocfg_on_metrics.csv, status: missing_sweep_machine}
+  - {id: it_euler_nocfg_nocfg,   model: infinitetalk, family: euler_jump, knobs: {step0: nocfg, teacher: nocfg}, csv: results/infinitetalk/data/euler_nocfg_nocfg_metrics.csv, status: missing_sweep_machine}
+  - {id: it_euler_on_nocfg,      model: infinitetalk, family: euler_jump, knobs: {step0: on, teacher: nocfg},    csv: results/infinitetalk/data/euler_on_nocfg_metrics.csv, status: missing_sweep_machine}
+comparisons:   # cross-model pairs; assumption on=(t5,a4) <-> cfg4.5 carried here, not hardcoded in code
+  - {name: default_trajectory, omniavatar: omni_ta_default, infinitetalk: it_t5.0_a4.0}
+  - {name: nocfg_trajectory,   omniavatar: omni_ta_nocfg,   infinitetalk: it_t1.0_a1.0}
+  - {name: euler_on_on,        omniavatar: omni_ta_euler_on_on,       infinitetalk: it_euler_on_on}
+  - {name: euler_nocfg_on,     omniavatar: omni_ta_euler_nocfg_on,    infinitetalk: it_euler_nocfg_on}
+  - {name: euler_nocfg_nocfg,  omniavatar: omni_ta_euler_nocfg_nocfg, infinitetalk: it_euler_nocfg_nocfg}
+  - {name: euler_on_nocfg,     omniavatar: omni_ta_euler_on_nocfg,    infinitetalk: it_euler_on_nocfg}
