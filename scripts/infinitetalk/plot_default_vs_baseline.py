@@ -9,12 +9,12 @@ For each variant it regenerates the per-config figure set restricted to the mout
 so every panel carries exactly two curves.
 
 Reads the committed results/ layout:
-    results/data/perceptual_t{T}_a{A}.csv   (step,t,sample,metric,region,value; step=-1 = GT)
-    results/data/geometry_t{T}_a{A}.json
+    results/infinitetalk/data/perceptual_t{T}_a{A}.csv   (step,t,sample,metric,region,value; step=-1 = GT)
+    results/infinitetalk/data/geometry_t{T}_a{A}.json
 
 Usage:
-    python scripts/plot_default_vs_baseline.py --data_dir results/data \
-        --output_dir results/figures/compare_default
+    python scripts/infinitetalk/plot_default_vs_baseline.py --data_dir results/infinitetalk/data \
+        --output_dir results/infinitetalk/figures/compare_default
 """
 import argparse
 import json
@@ -201,8 +201,8 @@ def fig_summary(dp, bp, dg, bg, tag, base_label, outdir):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data_dir", default="results/data")
-    ap.add_argument("--output_dir", default="results/figures/compare_default")
+    ap.add_argument("--data_dir", default="results/infinitetalk/data")
+    ap.add_argument("--output_dir", default="results/infinitetalk/figures/compare_default")
     args = ap.parse_args()
 
     dT, dA = DEFAULT

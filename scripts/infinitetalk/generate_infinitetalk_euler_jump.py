@@ -31,7 +31,7 @@ OUTPUT is a trajectory-shaped dir, so the whole existing Stage-2 stack runs on i
     Stage 2b:  analyze_ode_trajectory_infinitetalk.py --traj_dir <out>
 
 Usage:
-    python scripts/generate_infinitetalk_euler_jump.py \
+    python scripts/infinitetalk/generate_infinitetalk_euler_jump.py \
         --checkpoint_dir ... --infinitetalk_dir ... --wav2vec_dir ... \
         --video_dir ... --audio_dir ... --sample_names_file ... \
         --step0_traj_dir <traj_root>/infinitetalk_t5.0_a4.0 \

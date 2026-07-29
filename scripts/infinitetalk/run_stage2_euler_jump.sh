@@ -1,5 +1,5 @@
 #!/bin/bash
-# Stage 2 for the Euler-jump factorial (runs AFTER scripts/run_infinitetalk_euler_jump.sh).
+# Stage 2 for the Euler-jump factorial (runs AFTER scripts/infinitetalk/run_infinitetalk_euler_jump.sh).
 #
 # The Euler-jump driver emits trajectory-shaped dirs, so 2a runs on them unchanged, just pointed at
 # $EULER_ROOT/euler_{step0}_{teacher}/ instead of the sequential trajectories. 7 cells, one per GPU.
@@ -19,7 +19,7 @@
 #   RUN_2B=1 run_stage2_euler_jump.sh all             # ...including the GT-latent geometry
 set -uo pipefail
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 REF=/data/karlo-research_715/workspace/kinemaar/paul/AR_diffusion/reference_FastGen_InfiniteTalk
 export INFINITETALK_ROOT="$REF/InfiniteTalk"
 export METRICS_ROOT=/data/karlo-research_715/workspace/kinemaar/paul/eval_metrics
@@ -35,7 +35,7 @@ MASKCACHE="${MASKCACHE:-$REPO/ode_analysis_infinitetalk/_mouth_mask_cache}"
 mkdir -p "$ANALYSIS_ROOT" "$MASKCACHE"
 
 TRAJ_ROOT="${TRAJ_ROOT:-$REPO/ode_full_trajectories_infinitetalk}"   # sequential, for straightness
-STRAIGHT_OUT="${STRAIGHT_OUT:-$REPO/results/data}"
+STRAIGHT_OUT="${STRAIGHT_OUT:-$REPO/results/infinitetalk/data}"
 RUN_2B="${RUN_2B:-0}"
 
 CELLS=(euler_on_on euler_on_noaudio euler_noaudio_on euler_noaudio_noaudio
@@ -65,7 +65,7 @@ run_one() {   # $1 = cell name, $2 = gpu id
     # 1. straightness vs the sequential path at the same teacher CFG (cheap, CPU, no GT)
     local seq; seq="$(seq_for_cell "$cell")"
     if [ -n "$seq" ] && [ -d "$seq" ]; then
-        "$PY" scripts/measure_euler_straightness.py \
+        "$PY" scripts/common/measure_euler_straightness.py \
             --euler_dir "$traj" --sequential_dir "$seq" \
             --mouth_mask_cache "$MASKCACHE" \
             --output_dir "$STRAIGHT_OUT" --tag "${cell#euler_}" >> "$log" 2>&1 \
@@ -75,16 +75,16 @@ run_one() {   # $1 = cell name, $2 = gpu id
     fi
 
     # 2. Stage 2a — perceptual/lip/sync vs GT
-    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/eval_ode_perceptual_v2_infinitetalk.py \
+    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py \
         --phase decode  --traj_dir "$traj" --output_dir "$outp"  >> "$log" 2>&1
-    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/eval_ode_perceptual_v2_infinitetalk.py \
+    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py \
         --phase metrics --traj_dir "$traj" --output_dir "$outp"  >> "$log" 2>&1
-    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/eval_ode_perceptual_v2_infinitetalk.py \
+    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py \
         --merge         --traj_dir "$traj" --output_dir "$outp"  >> "$log" 2>&1
 
     # 3. Stage 2b — GT-latent geometry (opt-in)
     if [ "$RUN_2B" = "1" ]; then
-        CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/analyze_ode_trajectory_infinitetalk.py \
+        CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/infinitetalk/analyze_ode_trajectory_infinitetalk.py \
             --traj_dir "$traj" --output_dir "$outg" --gt_mode encode \
             --mask_source ref_decode --mouth_mask_cache "$MASKCACHE" >> "$log" 2>&1
     else
@@ -102,10 +102,10 @@ if [ "${1:-}" = "all" ]; then
     wait
     echo "=== Stage 2 done for all Euler-jump cells ==="
     echo "Next: figures"
-    echo "  $PY scripts/plot_euler_jump_factorial.py \\"
+    echo "  $PY scripts/infinitetalk/plot_euler_jump_factorial.py \\"
     echo "      --euler_analysis_root $ANALYSIS_ROOT \\"
     echo "      --sequential_analysis_root $REPO/ode_analysis_infinitetalk \\"
-    echo "      --output_dir results/figures/euler_jump"
+    echo "      --output_dir results/infinitetalk/figures/euler_jump"
 else
     run_one "${1:?usage: run_stage2_euler_jump.sh <cell>|all}" "${2:-0}"
 fi

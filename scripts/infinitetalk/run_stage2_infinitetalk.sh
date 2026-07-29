@@ -8,7 +8,7 @@
 #   run_stage2_infinitetalk.sh all              # all 7 configs, one per GPU (0..6), in parallel
 set -uo pipefail
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 REF=/data/karlo-research_715/workspace/kinemaar/paul/AR_diffusion/reference_FastGen_InfiniteTalk
 export INFINITETALK_ROOT="$REF/InfiniteTalk"
 export METRICS_ROOT=/data/karlo-research_715/workspace/kinemaar/paul/eval_metrics
@@ -38,15 +38,15 @@ run_one() {   # $1 = "T_A", $2 = gpu id
     if [ ! -e "$traj" ]; then echo "[cfg $ta] MISSING traj dir, skip" | tee -a "$log"; return 1; fi
 
     # 2a: decode -> metrics -> merge  (single-GPU, all 10 samples)
-    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/eval_ode_perceptual_v2_infinitetalk.py \
+    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py \
         --phase decode  --traj_dir "$traj" --output_dir "$outp"  >> "$log" 2>&1
-    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/eval_ode_perceptual_v2_infinitetalk.py \
+    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py \
         --phase metrics --traj_dir "$traj" --output_dir "$outp"  >> "$log" 2>&1
-    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/eval_ode_perceptual_v2_infinitetalk.py \
+    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py \
         --merge         --traj_dir "$traj" --output_dir "$outp"  >> "$log" 2>&1
 
     # 2b: latent trajectory geometry
-    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/analyze_ode_trajectory_infinitetalk.py \
+    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/infinitetalk/analyze_ode_trajectory_infinitetalk.py \
         --traj_dir "$traj" --output_dir "$outg" --gt_mode encode \
         --mask_source ref_decode --mouth_mask_cache "$MASKCACHE" >> "$log" 2>&1
     echo "[cfg $ta] done -> $outp , $outg" | tee -a "$log"
@@ -60,7 +60,7 @@ if [ "${1:-}" = "all" ]; then
     done
     wait
     echo "=== Stage 2a/2b done for all configs. Now build figures: ==="
-    echo "  $PY scripts/plot_ode_curves_infinitetalk.py --analysis_root <perceptual parent> ..."
+    echo "  $PY scripts/infinitetalk/plot_ode_curves_infinitetalk.py --analysis_root <perceptual parent> ..."
 else
     run_one "${1:?usage: run_stage2_infinitetalk.sh <T_A>|all}" "${2:-0}"
 fi

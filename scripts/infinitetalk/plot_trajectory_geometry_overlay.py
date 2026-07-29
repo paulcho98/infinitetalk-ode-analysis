@@ -16,12 +16,12 @@ Geometry JSONs produced before the `velocity` metric was added simply omit panel
 
 Usage:
     # from committed results/
-    python scripts/plot_trajectory_geometry_overlay.py \
-        --geometry_dir results/data --output_dir results/figures/trajectory
+    python scripts/infinitetalk/plot_trajectory_geometry_overlay.py \
+        --geometry_dir results/infinitetalk/data --output_dir results/infinitetalk/figures/trajectory
 
     # from a live analysis root (<root>/infinitetalk_t{T}_a{A}/trajectory/*.json)
-    python scripts/plot_trajectory_geometry_overlay.py \
-        --analysis_root ode_analysis_infinitetalk --output_dir results/figures/trajectory
+    python scripts/infinitetalk/plot_trajectory_geometry_overlay.py \
+        --analysis_root ode_analysis_infinitetalk --output_dir results/infinitetalk/figures/trajectory
 """
 import argparse
 import glob
@@ -62,7 +62,7 @@ def load_geometry(args, T, A):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--geometry_dir", default=None,
-                    help="dir of committed geometry_t{T}_a{A}.json (e.g. results/data)")
+                    help="dir of committed geometry_t{T}_a{A}.json (e.g. results/infinitetalk/data)")
     ap.add_argument("--analysis_root", default=None,
                     help="live Stage-2b root (<root>/infinitetalk_t{T}_a{A}/trajectory/)")
     ap.add_argument("--output_dir", required=True)

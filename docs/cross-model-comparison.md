@@ -75,7 +75,7 @@ never wrote `.pt` (`all_csvs/README.md` lists their trajectory dir as "—"). Co
 ## Verified compatible (checked 2026-07-29, not assumed)
 
 - **Same 10 samples.** Sample-ID sets in `14B_textaudio_perceptual_v2.csv` and
-  `results/data/perceptual_t5.0_a4.0.csv` are identical, string for string.
+  `results/infinitetalk/data/perceptual_t5.0_a4.0.csv` are identical, string for string.
 - **Same schema.** `step,t,sample,metric,region,value`, with a `step=-1` GT baseline row and steps 0–49.
 - **Row counts reconcile exactly.** OmniAvatar 6031 vs InfiniteTalk 5027. The delta is the dropped
   `upper_face` region (500 `pixel_mse` + 500 `ssim`) plus SyncNet dropouts (`sync_c`/`sync_d` 510 vs 508).
@@ -90,7 +90,7 @@ cells are gap A.
 
 ### A. InfiniteTalk's per-step euler metrics CSVs are not in git — blocking, but 3.5 MB
 `.gitignore` excludes `ode_analysis*/`, so the only committed euler outputs are the straightness JSONs
-(`rel_l2` and friends, no perceptual metrics) and `results/figures/euler_jump/euler_terminal_values.csv`
+(`rel_l2` and friends, no perceptual metrics) and `results/infinitetalk/figures/euler_jump/euler_terminal_values.csv`
 — which is **terminal step only, mouth only, 4 metrics** (`plot_euler_jump_factorial.py` hardcodes
 `REGION = "mouth"` and reads the last step).
 
@@ -103,10 +103,10 @@ decays ~3× by step 49, so a terminal-only diff against OmniAvatar's per-step CS
 <repo>/ode_analysis_euler_jump/euler_{on_on,on_noaudio,on_nocfg,noaudio_on,noaudio_noaudio,nocfg_on,nocfg_nocfg}/perceptual_v2/metrics.csv
 ```
 
-The sequential equivalents are already committed as `results/data/perceptual_t{T}_a{A}.csv`.
+The sequential equivalents are already committed as `results/infinitetalk/data/perceptual_t{T}_a{A}.csv`.
 
 ### B. Stage 2b is stale and its re-run lives on the sweep machine
-`results/data/geometry_*.json` predate the true `{region}_velocity` metric and the `delta_cosine[0]`
+`results/infinitetalk/data/geometry_*.json` predate the true `{region}_velocity` metric and the `delta_cosine[0]`
 fix. Re-running needs the 29 GB trajectory dump. Either re-run there and commit fresh JSONs (cheap:
 VAE-encode per sample), or ship the trajectories — `/home/work/.local` has ~549 GB free.
 

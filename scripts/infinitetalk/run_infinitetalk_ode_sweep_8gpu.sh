@@ -10,7 +10,7 @@
 set -euo pipefail
 
 # ── paths on THIS machine ──
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 REF=/data/karlo-research_715/workspace/kinemaar/paul/AR_diffusion/reference_FastGen_InfiniteTalk
 export INFINITETALK_ROOT="$REF/InfiniteTalk"
 export TORCHDYNAMO_DISABLE=1   # run eager: no python3.10 dev headers for Triton/inductor gcc compile
@@ -42,7 +42,7 @@ COMMON=(--checkpoint_dir "$CKPT" --infinitetalk_dir "$ITALK" --wav2vec_dir "$WAV
 
 # ── 1) precompute audio cache once (CPU-only pass) ──
 echo "=== [precompute] wav2vec audio cache ==="
-CUDA_VISIBLE_DEVICES=0 LOCAL_RANK=0 "$PY" scripts/generate_infinitetalk_ode_pairs_full.py \
+CUDA_VISIBLE_DEVICES=0 LOCAL_RANK=0 "$PY" scripts/infinitetalk/generate_infinitetalk_ode_pairs_full.py \
     "${COMMON[@]}" --precompute_audio_only 2>&1 | tee "$OUT/precompute_audio.log"
 
 # ── 1.5) prewarm shared weights into the page cache (all 8 workers read the same ~100GB;
@@ -54,7 +54,7 @@ echo "=== [prewarm] done ==="
 # ── 2) launch NGPU job-sharded workers (small stagger so cache stays warm, GPUs ramp cleanly) ──
 echo "=== [sweep] launching $NGPU job-sharded workers ==="
 for SHARD in $(seq 0 $((NGPU - 1))); do
-    CUDA_VISIBLE_DEVICES=$SHARD LOCAL_RANK=0 "$PY" scripts/generate_infinitetalk_ode_pairs_full.py \
+    CUDA_VISIBLE_DEVICES=$SHARD LOCAL_RANK=0 "$PY" scripts/infinitetalk/generate_infinitetalk_ode_pairs_full.py \
         "${COMMON[@]}" --shard_unit job --num_shards "$NGPU" --shard_id "$SHARD" --skip_existing \
         > "$OUT/gen_shard${SHARD}.log" 2>&1 &
     sleep 8

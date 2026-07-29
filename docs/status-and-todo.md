@@ -5,10 +5,10 @@ first for the five load-bearing facts, then this.
 
 > **UPDATE (2026-07-26) — steps 1-5 and the Euler-jump factorial are DONE.** The 8-GPU sweep,
 > Stage-2a metrics, Stage-2b geometry, the Stage-2c plotters and the **Euler-jump factorial** have
-> all completed; see `results/findings.md` + `results/figures/`. What remains:
+> all completed; see `results/infinitetalk/findings.md` + `results/infinitetalk/figures/`. What remains:
 >
 > - **← CURRENT PRIORITY: re-run Stage 2b** to pick up the true `{region}_velocity` metric and the
->   `delta_cosine[0]` fix (see the "Corrected in this revision" note in `results/findings.md`). The
+>   `delta_cosine[0]` fix (see the "Corrected in this revision" note in `results/infinitetalk/findings.md`). The
 >   committed geometry JSONs and per-config figures predate both. It was deprioritized behind the
 >   Euler-jump work, which is now finished — so this is next. Stage 2b is correspondingly off by
 >   default in the Euler Stage-2 launchers (`RUN_2B=1` enables it). The perceptual CSVs are
@@ -25,7 +25,7 @@ first for the five load-bearing facts, then this.
 > **Euler-jump summary:** 7 cells × 10 samples × 50 landing steps, ~12.7 h on 7×A100. Both
 > pre-flight checks passed. Curvature is created by *audio* guidance at step 0 (text contributes
 > ~nothing); Sync-C peaks at landing step 11–15, not at the end. Full write-up in
-> `results/findings.md` and `docs/euler-jump-experiment.md`.
+> `results/infinitetalk/findings.md` and `docs/euler-jump-experiment.md`.
 
 ## What has been done and VALIDATED
 
@@ -33,13 +33,13 @@ first for the five load-bearing facts, then this.
    (the tricky ones: `transformers==4.49.0`, `diffusers==0.33.1`, flash-attn prebuilt wheel; `dlib-bin`
    added for Stage-2). `generate_infinitetalk.py --help` and a full 20-step generation both run.
 2. **Checkpoints** downloaded (Wan2.1-I2V-14B-480P, MeiGen-AI/InfiniteTalk, chinese-wav2vec2-base).
-3. **Stage-1 driver** `scripts/generate_infinitetalk_ode_pairs_full.py`:
+3. **Stage-1 driver** `scripts/infinitetalk/generate_infinitetalk_ode_pairs_full.py`:
    - Subclasses `InfiniteTalkPipeline`; forks the denoising loop; derives `x0 = x_t + sigma·noise_pred`.
    - Reproduces InfiniteTalk's exact CFG branching (3-call; (1,1) → 1-pass).
    - **FORCE-SQUARE** patch applied and verified: a non-square (2:3) reference now yields `[16,21,80,80]`.
    - VALIDATED end-to-end: decoded `x0` is a coherent talking-head (see `examples/frames/`).
    - Multi-config per model load; shards by sample; caches wav2vec audio per hash.
-4. **Stage-1 launcher**: `scripts/run_infinitetalk_ode_sweep_8gpu.sh` (job-sharded, 8-GPU) ran the
+4. **Stage-1 launcher**: `scripts/infinitetalk/run_infinitetalk_ode_sweep_8gpu.sh` (job-sharded, 8-GPU) ran the
    full 7-config sweep to completion — 70 trajectories, ~11 h, now on disk in
    `ode_full_trajectories_infinitetalk/` (~29 GB, gitignored). `run_infinitetalk_ode_sweep.sh` is
    the older 4-GPU variant.
@@ -47,7 +47,7 @@ first for the five load-bearing facts, then this.
    both ran to completion on the full sweep. For 2b, mask-derivation (dlib mouth-bbox) + WanVAE
    decode/encode paths validated on real data; the GT reader was fixed to center-crop-to-square
    (matches the generator). 2a's GT reader already center-crops.
-6. **Euler-jump factorial** (`scripts/generate_infinitetalk_euler_jump.py` +
+6. **Euler-jump factorial** (`scripts/infinitetalk/generate_infinitetalk_euler_jump.py` +
    `run_infinitetalk_euler_jump.sh`): all 7 cells complete, ~12.7 h on 7×A100, output in
    `ode_euler_jump_infinitetalk/`. Both pre-flight checks in `docs/euler-jump-experiment.md` passed.
    Stage-2 via `run_stage2_euler_jump_sharded.sh` (shards the SyncNet-bound metrics phase; the
@@ -60,7 +60,7 @@ first for the five load-bearing facts, then this.
 > it listed has since run to completion. Accurate remaining list:
 
 - **Stage 2b needs a re-run** to populate the true `{region}_velocity` metric and pick up the
-  `delta_cosine[0]` fix. The committed `results/data/geometry_*.json` and the per-config 2b figures
+  `delta_cosine[0]` fix. The committed `results/infinitetalk/data/geometry_*.json` and the per-config 2b figures
   predate both, so the velocity panel is the only untrustworthy output in `results/`. The perceptual
   CSVs and the Euler-jump results are unaffected.
 - **Stage 2b was not run for the Euler-jump cells at all** (deliberate — `RUN_2B=1` enables it).
@@ -69,7 +69,7 @@ first for the five load-bearing facts, then this.
   the OmniAvatar results are on the OmniAvatar machine. Needs the 7 euler `metrics.csv` files moved
   off the sweep machine (~3.5 MB) before the Factorial-B diff can be done at per-step granularity.
   See `docs/cross-model-comparison.md`.
-- **`results/data/` does not contain per-step euler perceptual metrics.** Only
+- **`results/infinitetalk/data/` does not contain per-step euler perceptual metrics.** Only
   `straightness_*.json` (curvature) and a terminal-step-only, mouth-only
   `figures/euler_jump/euler_terminal_values.csv` are committed. The per-cell
   `ode_analysis_euler_jump/euler_*/perceptual_v2/metrics.csv` are gitignored and exist only on the
@@ -97,7 +97,7 @@ The EXTERNAL paths you MUST still edit:
 
 ### 1. Run the Stage-1 sweep (~8 h, 4 GPUs)
 ```bash
-bash scripts/run_infinitetalk_ode_sweep.sh 50
+bash scripts/infinitetalk/run_infinitetalk_ode_sweep.sh 50
 ```
 Sanity while it runs: every `step_000_xt.pt` must be `[16,21,80,80]` (NOT 64×96). If any is non-square,
 the force-square patch didn't take — check `generate_infinitetalk_ode_pairs_full.py` (the
@@ -110,7 +110,7 @@ the force-square patch didn't take — check `generate_infinitetalk_ode_pairs_fu
 
 ### 3. Re-validate Stage 2b on ONE finished config (should pass now)
 ```bash
-python scripts/analyze_ode_trajectory_infinitetalk.py --traj_dir <cfg> --output_dir <out> \
+python scripts/infinitetalk/analyze_ode_trajectory_infinitetalk.py --traj_dir <cfg> --output_dir <out> \
   --gt_mode encode --gt_video_dir <hallo3_bench> --mask_source ref_decode \
   --mouth_mask_cache <cache> --shape_predictor <eval_metrics>/shape_predictor_68_face_landmarks.dat
 ```
@@ -134,9 +134,9 @@ step 0 straight to each noise level and re-predict, then compare against the seq
 Two overlapping 2×2s over (step-0 CFG) × (teacher CFG) with `on=(5,4)`, `noaudio=(5,1)`,
 `nocfg=(1,1)` — 7 distinct cells (the on/on cell is shared).
 ```bash
-bash scripts/run_infinitetalk_euler_jump.sh 50      # generate, 7 cells across 8 GPUs
-bash scripts/run_stage2_euler_jump.sh all           # metrics + geometry (same Stage-2 stack)
-python scripts/plot_euler_jump_factorial.py ...     # figures
+bash scripts/infinitetalk/run_infinitetalk_euler_jump.sh 50      # generate, 7 cells across 8 GPUs
+bash scripts/infinitetalk/run_stage2_euler_jump.sh all           # metrics + geometry (same Stage-2 stack)
+python scripts/infinitetalk/plot_euler_jump_factorial.py ...     # figures
 ```
 Prereq: Stage-1 trajectories for t5.0_a4.0, t5.0_a1.0, t1.0_a1.0 (all in the standard sweep).
 **Smoke-test `euler_on_on` first** — its step 0 should land very close to the sequential trajectory's.

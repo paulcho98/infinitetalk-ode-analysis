@@ -4,7 +4,7 @@
 # Writes metrics_shard{i}.csv per config, then merges to metrics.csv.
 set -uo pipefail
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO"                                  # CWD=repo so scripts/ + sfd symlink resolve
 REF=/data/karlo-research_715/workspace/kinemaar/paul/AR_diffusion/reference_FastGen_InfiniteTalk
 export INFINITETALK_ROOT="$REF/InfiniteTalk"
@@ -29,7 +29,7 @@ for ta in "${CONFIGS[@]}"; do
     mkdir -p "$outp"
     rm -f "$outp"/metrics_shard*.csv        # clear stale shards
     for i in $(seq 0 $((NS - 1))); do
-        CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/eval_ode_perceptual_v2_infinitetalk.py \
+        CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py \
             --phase metrics --traj_dir "$traj" --output_dir "$outp" \
             --shard_id "$i" --num_shards "$NS" \
             > "$outp/metrics_shard${i}.log" 2>&1 &
@@ -45,7 +45,7 @@ for ta in "${CONFIGS[@]}"; do
     T="${ta%_*}" A="${ta#*_}"
     traj="$TRAJ_ROOT/infinitetalk_t${T}_a${A}"
     outp="$ANALYSIS_ROOT/infinitetalk_t${T}_a${A}/perceptual_v2"
-    "$PY" scripts/eval_ode_perceptual_v2_infinitetalk.py \
+    "$PY" scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py \
         --merge --traj_dir "$traj" --output_dir "$outp" > "$outp/merge.log" 2>&1
     echo "merged $ta: $(wc -l < "$outp/metrics.csv" 2>/dev/null) rows"
 done

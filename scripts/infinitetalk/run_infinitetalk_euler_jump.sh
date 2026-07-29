@@ -25,7 +25,7 @@
 set -euo pipefail
 
 # ── paths on THIS machine (mirror run_infinitetalk_ode_sweep_8gpu.sh) ──
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 REF=/data/karlo-research_715/workspace/kinemaar/paul/AR_diffusion/reference_FastGen_InfiniteTalk
 export INFINITETALK_ROOT="$REF/InfiniteTalk"
 export TORCHDYNAMO_DISABLE=1
@@ -73,7 +73,7 @@ for alias in on noaudio nocfg; do
     d="${TRAJDIR[$alias]}"
     if [ ! -d "$d" ]; then
         echo "[FATAL] missing Stage-1 trajectory for '$alias': $d" >&2
-        echo "        Run scripts/run_infinitetalk_ode_sweep_8gpu.sh first." >&2
+        echo "        Run scripts/infinitetalk/run_infinitetalk_ode_sweep_8gpu.sh first." >&2
         exit 1
     fi
 done
@@ -94,7 +94,7 @@ for cell in "${CELLS[@]}"; do
     outdir="$OUT/$name"
     mkdir -p "$outdir"
     echo "  GPU $gpu: $name   step0=${CFG[$s0]}  teacher=${CFG[$tch]}"
-    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/generate_infinitetalk_euler_jump.py \
+    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/infinitetalk/generate_infinitetalk_euler_jump.py \
         "${COMMON[@]}" \
         --step0_traj_dir "${TRAJDIR[$s0]}" \
         --text_cfg_teacher "$t_t" --audio_cfg_teacher "$a_t" \
@@ -117,5 +117,5 @@ for cell in "${CELLS[@]}"; do
 done
 echo ""
 echo "Next: Stage-2 metrics + geometry over these dirs"
-echo "  bash scripts/run_stage2_euler_jump.sh"
+echo "  bash scripts/infinitetalk/run_stage2_euler_jump.sh"
 exit $fail

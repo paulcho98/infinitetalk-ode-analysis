@@ -35,7 +35,7 @@ Phase 1 (decode) — run in the `infinitetalk` conda env (needs InfiniteTalk's w
 torch+CUDA, cv2, imageio, ffmpeg). REQUIRES A GPU.
 
     CUDA_VISIBLE_DEVICES=0 /home/work/.local/miniconda3/envs/infinitetalk/bin/python \
-        scripts/eval_ode_perceptual_v2_infinitetalk.py \
+        scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py \
         --phase decode \
         --traj_dir /home/work/.local/ode_full_trajectories_infinitetalk/infinitetalk_t5.0_a4.0 \
         --output_dir /home/work/.local/ode_analysis_infinitetalk/t5.0_a4.0/perceptual_v2
@@ -45,7 +45,7 @@ skimage, plus eval_metrics syncnet). NOTE: `latentsync-metrics` is MISSING the `
 package, so either use `omniavatar`, or use latentsync-metrics with `--skip_metrics lpips`.
 
     CUDA_VISIBLE_DEVICES=0 /home/work/.local/miniconda3/envs/omniavatar/bin/python \
-        scripts/eval_ode_perceptual_v2_infinitetalk.py \
+        scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py \
         --phase metrics \
         --traj_dir /home/work/.local/ode_full_trajectories_infinitetalk/infinitetalk_t5.0_a4.0 \
         --output_dir /home/work/.local/ode_analysis_infinitetalk/t5.0_a4.0/perceptual_v2
@@ -53,7 +53,7 @@ package, so either use `omniavatar`, or use latentsync-metrics with `--skip_metr
 Phase 3 (--merge) — any env with pandas + matplotlib (e.g. omniavatar). No GPU.
 
     /home/work/.local/miniconda3/envs/omniavatar/bin/python \
-        scripts/eval_ode_perceptual_v2_infinitetalk.py --merge \
+        scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py --merge \
         --traj_dir /home/work/.local/ode_full_trajectories_infinitetalk/infinitetalk_t5.0_a4.0 \
         --output_dir /home/work/.local/ode_analysis_infinitetalk/t5.0_a4.0/perceptual_v2
 

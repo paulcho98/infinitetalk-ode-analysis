@@ -9,7 +9,7 @@ Reads <analysis_root>/infinitetalk_t{T}_a{A}/perceptual_v2/metrics.csv
       (schema: step,t,sample,metric,region,value ; step=-1 rows are GT baselines).
 
 Usage:
-    python scripts/plot_ode_curves_infinitetalk.py --analysis_root <root> --output_dir <out>
+    python scripts/infinitetalk/plot_ode_curves_infinitetalk.py --analysis_root <root> --output_dir <out>
 """
 import argparse
 import os

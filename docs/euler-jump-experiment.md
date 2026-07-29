@@ -5,9 +5,9 @@ Port of the OmniAvatar `euler_{cfg}_{cfg}` experiment to InfiniteTalk. **Purpose
 See "Replication target" below for the exact cell mapping.
 
 > **RUN AND COMPLETE (2026-07-26).** All 7 cells generated (3,500 teacher forwards, ~12.7 h on
-> 7×A100) and analysed; results in `results/findings.md` § "ODE straightness — the Euler-jump
-> factorial", figures in `results/figures/euler_jump/`, per-step curves in
-> `results/data/straightness_*.json`.
+> 7×A100) and analysed; results in `results/infinitetalk/findings.md` § "ODE straightness — the Euler-jump
+> factorial", figures in `results/infinitetalk/figures/euler_jump/`, per-step curves in
+> `results/infinitetalk/data/straightness_*.json`.
 >
 > **Both pre-flight checks passed.** (1) step-0 `x_t` is bit-identical across configs (`maxdiff=0.0`),
 > so reading the step-0 leg from the sweep is valid. Note `t_list[0] = 1000.0` → `σ₀ = 1.0` exactly,
@@ -97,7 +97,7 @@ The `on/on` cell is shared, so this is **7 distinct runs, not 8**:
 ```
 
 The two "off" flavours were chosen because the Stage-2a comparison figures
-(`results/figures/compare_default/`) already showed these are the two ablations that separate:
+(`results/infinitetalk/figures/compare_default/`) already showed these are the two ablations that separate:
 removing audio guidance collapses lip-sync while *improving* pixel metrics, and removing all
 guidance does the same more strongly.
 
@@ -112,16 +112,16 @@ are missing.
 
 ```bash
 # 1. generate — 7 cells, one per GPU
-bash scripts/run_infinitetalk_euler_jump.sh 50
+bash scripts/infinitetalk/run_infinitetalk_euler_jump.sh 50
 
 # 2. straightness + Stage 2a  (Stage 2b is SKIPPED by default — see below)
-bash scripts/run_stage2_euler_jump.sh all
+bash scripts/infinitetalk/run_stage2_euler_jump.sh all
 
 # 3. figures
-python scripts/plot_euler_jump_factorial.py \
+python scripts/infinitetalk/plot_euler_jump_factorial.py \
     --euler_analysis_root ode_analysis_euler_jump \
     --sequential_analysis_root ode_analysis_infinitetalk \
-    --output_dir results/figures/euler_jump
+    --output_dir results/infinitetalk/figures/euler_jump
 ```
 
 ### The straightness number (the actual point)
@@ -131,7 +131,7 @@ path were straight, one jump from step 0 would reproduce the sequential result a
 zero everywhere. Neither Stage 2a nor Stage 2b computes this: 2a compares against GT *pixels*, 2b
 against the GT *latent*. Both answer "how good is it", not "how far did the jump miss".
 
-`scripts/measure_euler_straightness.py` fills that gap, and `run_stage2_euler_jump.sh` runs it first
+`scripts/common/measure_euler_straightness.py` fills that gap, and `run_stage2_euler_jump.sh` runs it first
 for every cell. Each cell is compared against the sequential trajectory whose CFG matches its
 **teacher** leg, so the only difference is *how the state was reached*:
 
@@ -148,7 +148,7 @@ depend on the Stage-2b re-run.
 
 ### Stage 2b is off by default
 
-`RUN_2B=1 bash scripts/run_stage2_euler_jump.sh all` enables it. It is skipped because it is the
+`RUN_2B=1 bash scripts/infinitetalk/run_stage2_euler_jump.sh all` enables it. It is skipped because it is the
 expensive leg (VAE-encodes the GT clip per sample) and measures distance-to-GT, which is secondary
 here to distance-to-sequential. The committed sequential geometry JSONs also still predate the
 velocity / `delta_cosine[0]` fixes, so 2b output needs its own re-run before it is trustworthy —
@@ -177,7 +177,7 @@ with the teacher instead of loading it — do not run the sweep until this is re
 **2. Smoke-test `euler_on_on` on one GPU.**
 
 ```bash
-bash scripts/run_stage2_euler_jump.sh euler_on_on 0
+bash scripts/infinitetalk/run_stage2_euler_jump.sh euler_on_on 0
 ```
 
 Its teacher CFG equals the source trajectory's, so its step-0 output should be **very close** to the

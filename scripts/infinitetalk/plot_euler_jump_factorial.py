@@ -11,10 +11,10 @@ teacher CFG as a dashed reference. The Euler-vs-sequential gap IS the curvature 
 if the ODE path were straight, a single jump from step 0 would reproduce the sequential result.
 
 Usage:
-    python scripts/plot_euler_jump_factorial.py \
+    python scripts/infinitetalk/plot_euler_jump_factorial.py \
         --euler_analysis_root ode_analysis_euler_jump \
         --sequential_analysis_root ode_analysis_infinitetalk \
-        --output_dir results/figures/euler_jump
+        --output_dir results/infinitetalk/figures/euler_jump
 """
 import argparse
 import os

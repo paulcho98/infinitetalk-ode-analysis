@@ -10,7 +10,7 @@
 set -euo pipefail
 
 IT=/home/work/.local/InfiniteTalk/weights   # EDIT: InfiniteTalk weights dir on this machine
-REPO="$(cd "$(dirname "$0")/.." && pwd)"      # repo root (holds scripts/, data/)
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"   # repo root (holds scripts/, data/)
 PY=/home/work/.local/miniconda3/envs/infinitetalk/bin/python   # EDIT: infinitetalk env python
 OUT=/home/work/.local/ode_full_trajectories_infinitetalk
 NAMES="$REPO/data/recon_sample_names.txt"
@@ -24,7 +24,7 @@ cd "$REPO"
 echo "Configs: $CONFIGS | steps=$STEPS | out=$OUT"
 
 for SHARD in 0 1 2 3; do
-    CUDA_VISIBLE_DEVICES=$SHARD LOCAL_RANK=0 $PY scripts/generate_infinitetalk_ode_pairs_full.py \
+    CUDA_VISIBLE_DEVICES=$SHARD LOCAL_RANK=0 $PY scripts/infinitetalk/generate_infinitetalk_ode_pairs_full.py \
         --checkpoint_dir $IT/Wan2.1-I2V-14B-480P \
         --infinitetalk_dir $IT/InfiniteTalk/single/infinitetalk.safetensors \
         --wav2vec_dir $IT/chinese-wav2vec2-base \

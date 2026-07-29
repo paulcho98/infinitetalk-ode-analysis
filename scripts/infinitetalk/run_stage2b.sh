@@ -1,7 +1,7 @@
 #!/bin/bash
 # Stage-2b: latent trajectory geometry (straightness/velocity/x0-vs-GT) for all 7 configs in parallel.
 set -uo pipefail
-REPO="$(cd "$(dirname "$0")/.." && pwd)"; cd "$REPO"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"; cd "$REPO"
 REF=/data/karlo-research_715/workspace/kinemaar/paul/AR_diffusion/reference_FastGen_InfiniteTalk
 export INFINITETALK_ROOT="$REF/InfiniteTalk"
 export METRICS_ROOT=/data/karlo-research_715/workspace/kinemaar/paul/eval_metrics
@@ -19,7 +19,7 @@ for ta in "${CONFIGS[@]}"; do
     traj="$TRAJ_ROOT/infinitetalk_t${T}_a${A}"
     outg="$ANALYSIS_ROOT/infinitetalk_t${T}_a${A}/trajectory"
     cache="$outg/mask_cache"; mkdir -p "$outg" "$cache"
-    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/analyze_ode_trajectory_infinitetalk.py \
+    CUDA_VISIBLE_DEVICES=$gpu "$PY" scripts/infinitetalk/analyze_ode_trajectory_infinitetalk.py \
         --traj_dir "$traj" --output_dir "$outg" --gt_mode encode \
         --mask_source ref_decode --mouth_mask_cache "$cache" \
         > "$outg/analyze.log" 2>&1 &

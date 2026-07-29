@@ -13,7 +13,7 @@ and produces, for a chosen terminal-quality metric:
 all for the mouth region by default. Terminal value = mean over samples of the last ODE step.
 
 Usage:
-    python scripts/plot_cfg_grid_infinitetalk.py \
+    python scripts/infinitetalk/plot_cfg_grid_infinitetalk.py \
         --analysis_root <ode_analysis_infinitetalk> --output_dir <out> [--region mouth]
 """
 import argparse
@@ -45,7 +45,7 @@ METRIC_INFO = {
 
 
 def cfg_dir(analysis_root, T, A):
-    """Per-config metrics CSV. Accepts the live Stage-2a layout or the committed results/data one."""
+    """Per-config metrics CSV. Accepts the live Stage-2a layout or the committed results/infinitetalk/data one."""
     live = os.path.join(analysis_root, f"infinitetalk_t{T}_a{A}", "perceptual_v2", "metrics.csv")
     if os.path.exists(live):
         return live
