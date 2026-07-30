@@ -69,11 +69,11 @@ first for the five load-bearing facts, then this.
   the OmniAvatar results are on the OmniAvatar machine. Needs the 7 euler `metrics.csv` files moved
   off the sweep machine (~3.5 MB) before the Factorial-B diff can be done at per-step granularity.
   See `docs/cross-model-comparison.md`.
-- **`results/data/` does not contain per-step euler perceptual metrics.** Only
-  `straightness_*.json` (curvature) and a terminal-step-only, mouth-only
-  `figures/euler_jump/euler_terminal_values.csv` are committed. The per-cell
-  `ode_analysis_euler_jump/euler_*/perceptual_v2/metrics.csv` are gitignored and exist only on the
-  sweep machine — and they hold the step 11–15 peak that the terminal values miss entirely.
+- ~~**`results/data/` does not contain per-step euler perceptual metrics.**~~ **Fixed 2026-07-30** —
+  committed as `results/data/euler_perceptual_<cell>.csv` (7 files, 2.7 MB, full per-step × per-sample
+  × both regions, schema-identical to the sequential `perceptual_t{T}_a{A}.csv`). This closed gap A in
+  `docs/cross-model-comparison.md`, so the Factorial-B diff needs no file transfer — just `git pull` on
+  the OmniAvatar machine.
 
 ## HOW TO PROCEED (ordered)
 
