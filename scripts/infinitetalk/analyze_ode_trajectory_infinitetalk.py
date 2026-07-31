@@ -27,13 +27,13 @@ Usage:
     # Single env (requires dlib installed in the infinitetalk env — see notes):
     python scripts/infinitetalk/analyze_ode_trajectory_infinitetalk.py \
         --traj_dir /home/work/.local/ode_full_trajectories_infinitetalk/infinitetalk_t5.0_a4.0 \
-        --output_dir /home/work/ode_analysis_infinitetalk/t5.0_a4.0
+        --output_dir /home/work/.local/ode_analysis_infinitetalk/t5.0_a4.0
 
     # With audio ablation (requires a matching no-audio trajectory dir — we currently have none):
     python scripts/infinitetalk/analyze_ode_trajectory_infinitetalk.py \
         --traj_dir .../infinitetalk_t5.0_a4.0 \
         --no_audio_traj_dir .../infinitetalk_t5.0_a4.0_no_audio \
-        --output_dir /home/work/ode_analysis_infinitetalk/t5.0_a4.0
+        --output_dir /home/work/.local/ode_analysis_infinitetalk/t5.0_a4.0
 """
 
 import argparse
