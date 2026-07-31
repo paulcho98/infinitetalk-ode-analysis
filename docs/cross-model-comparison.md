@@ -88,33 +88,37 @@ cells are gap A.
 
 ## Gaps
 
-### A. InfiniteTalk's per-step euler metrics CSVs are not in git — blocking, but 3.5 MB
-`.gitignore` excludes `ode_analysis*/`, so the only committed euler outputs are the straightness JSONs
-(`rel_l2` and friends, no perceptual metrics) and `results/infinitetalk/figures/euler_jump/euler_terminal_values.csv`
-— which is **terminal step only, mouth only, 4 metrics** (`plot_euler_jump_factorial.py` hardcodes
-`REGION = "mouth"` and reads the last step).
+### A. InfiniteTalk's per-step euler metrics CSVs — ✅ CLOSED 2026-07-30
 
-**Tracked in `configs/registry.yaml`**: the 4 per-step euler entries carry `status:
-missing_sweep_machine` and a `csv:` path that does not exist yet in this repo —
-`it_euler_on_on`, `it_euler_nocfg_on`, `it_euler_nocfg_nocfg`, `it_euler_on_nocfg`, pointing at
-`results/infinitetalk/data/euler_{on_on,nocfg_on,nocfg_nocfg,on_nocfg}_metrics.csv` respectively.
-Each is paired with its OmniAvatar replication target under `comparisons:` in the same file
-(`euler_on_on`, `euler_nocfg_on`, `euler_nocfg_nocfg`, `euler_on_nocfg`). Fetching the 7 files
-below and dropping them at those exact `csv:` paths (renaming/merging as needed — the sweep
-machine's per-cell layout doesn't match the flat filename the registry expects 1:1) is what turns
-`status: missing_sweep_machine` into a resolvable entry. Also logged in
-`docs/status-and-todo.md` § Deferred re-runs (c).
-
-That is precisely the wrong slice: our own finding is that Sync-C peaks at landing **step 11–15** and
-decays ~3× by step 49, so a terminal-only diff against OmniAvatar's per-step CSVs discards the result.
-
-**Fetch from the sweep machine** (7 files, ~500 KB each):
+**Resolved from the sweep machine: the 7 CSVs are committed to this repo**, relocated during the
+`results/data/` → `results/infinitetalk/data/` restructure:
 
 ```
-<repo>/ode_analysis_euler_jump/euler_{on_on,on_noaudio,on_nocfg,noaudio_on,noaudio_noaudio,nocfg_on,nocfg_nocfg}/perceptual_v2/metrics.csv
+results/infinitetalk/data/euler_perceptual_{on_on,on_noaudio,on_nocfg,noaudio_on,noaudio_noaudio,nocfg_on,nocfg_nocfg}.csv
 ```
 
-The sequential equivalents are already committed as `results/infinitetalk/data/perceptual_t{T}_a{A}.csv`.
+2.7 MB total. Verbatim copies of `ode_analysis_euler_jump/euler_<cell>/perceptual_v2/metrics.csv`
+(still gitignored at source), named to mirror the existing `straightness_<cell>.json` convention.
+Verified on copy: schema is byte-identical to the sequential
+`results/infinitetalk/data/perceptual_t{T}_a{A}.csv` (`step,t,sample,metric,region,value`), each
+file carries all 10 samples × steps 0–49 plus 30 `step=-1` GT rows, 4750–4962 rows per cell (the
+spread is SyncNet face-track dropouts on heavily blurred late-landing jumps, same cause as the
+510-vs-508 delta noted above).
+
+*Why this mattered:* the only euler perceptual data previously in git was
+`results/infinitetalk/figures/euler_jump/euler_terminal_values.csv` — **terminal step only, mouth
+only, 4 metrics** (`plot_euler_jump_factorial.py` hardcodes `REGION = "mouth"` and reads the last
+step). That is precisely the wrong slice, since Sync-C peaks at landing **step 11–15** and decays
+~3× by step 49; a terminal-only diff would have discarded the headline finding.
+
+**`configs/registry.yaml` updated to match**: the 4 per-step euler entries (`it_euler_on_on`,
+`it_euler_nocfg_on`, `it_euler_nocfg_nocfg`, `it_euler_on_nocfg`) now point at the real `csv:`
+paths above and no longer carry `status: missing_sweep_machine`. Each stays paired with its
+OmniAvatar replication target under `comparisons:` in the same file (`euler_on_on`,
+`euler_nocfg_on`, `euler_nocfg_nocfg`, `euler_on_nocfg`). The registry also gained 3 new
+`it_euler_noaudio_noaudio` / `it_euler_noaudio_on` / `it_euler_on_noaudio` entries for the
+remaining audio-knob cells — no OmniAvatar counterpart exists for those, so they carry no
+`comparisons:` pairing. Also logged in `docs/status-and-todo.md` § Deferred re-runs (c).
 
 ### B. Stage 2b is stale and its re-run lives on the sweep machine
 `results/infinitetalk/data/geometry_*.json` predate the true `{region}_velocity` metric and the `delta_cosine[0]`
@@ -168,8 +172,9 @@ assumption, not an equivalence — OmniAvatar's CFG is scalar, ours is 2-D.
 
 ## Suggested order of work
 
-1. Fetch the 7 euler `metrics.csv` files (gap A). Everything else for Factorial B is already on the
-   OmniAvatar machine.
+1. ~~Fetch the 7 euler `metrics.csv` files (gap A).~~ **Done — `git pull`.** They are committed as
+   `results/infinitetalk/data/euler_perceptual_<cell>.csv`. Everything else for Factorial B was
+   already on the OmniAvatar machine, so **step 2 is now unblocked and can start immediately, there.**
 2. Write the diff: per-step overlays of our 4 Factorial-B cells against the 4 `14B_textaudio_euler_*.csv`,
    normalized per model. The specific questions worth answering — does OmniAvatar also peak at a
    mid landing step, and is its guided-origin curvature penalty the same sign and rough magnitude.

@@ -18,9 +18,10 @@ first for the five load-bearing facts, then this.
 >   **OmniAvatar machine** (`/home/work/.local/{ode_analysis,ode_full_trajectories}`), where they were
 >   verified schema- and sample-compatible with this repo's CSVs. The Euler-jump Factorial B cells are
 >   a 1:1 replication of OmniAvatar's four `14B_textaudio_euler_*` CSVs and are the natural first diff.
->   One transfer is required first: the per-cell euler `metrics.csv` files are gitignored, so only
->   terminal-step values crossed over. **Read `docs/cross-model-comparison.md`** — machine map,
->   inventory, the three gaps, and the normalization caveats.
+>   The one prerequisite transfer — the per-cell euler `metrics.csv` files, previously gitignored so
+>   only terminal-step values had crossed over — **is done as of 2026-07-30** (gap A, closed).
+>   **Read `docs/cross-model-comparison.md`** — machine map, inventory, the remaining gaps, and the
+>   normalization caveats.
 >
 > **Euler-jump summary:** 7 cells × 10 samples × 50 landing steps, ~12.7 h on 7×A100. Both
 > pre-flight checks passed. Curvature is created by *audio* guidance at step 0 (text contributes
@@ -66,14 +67,14 @@ first for the five load-bearing facts, then this.
 - **Stage 2b was not run for the Euler-jump cells at all** (deliberate — `RUN_2B=1` enables it).
   It measures distance-to-GT, which is secondary to distance-to-sequential for that experiment.
 - **Cross-model comparison vs OmniAvatar** (original step 6) — not started, but no longer blocked:
-  the OmniAvatar results are on the OmniAvatar machine. Needs the 7 euler `metrics.csv` files moved
-  off the sweep machine (~3.5 MB) before the Factorial-B diff can be done at per-step granularity.
+  the OmniAvatar results are on the OmniAvatar machine, and gap A (below) is now closed too — no
+  file transfer is required before the Factorial-B diff can be done at per-step granularity.
   See `docs/cross-model-comparison.md`.
-- **`results/infinitetalk/data/` does not contain per-step euler perceptual metrics.** Only
-  `straightness_*.json` (curvature) and a terminal-step-only, mouth-only
-  `figures/euler_jump/euler_terminal_values.csv` are committed. The per-cell
-  `ode_analysis_euler_jump/euler_*/perceptual_v2/metrics.csv` are gitignored and exist only on the
-  sweep machine — and they hold the step 11–15 peak that the terminal values miss entirely.
+- ~~**`results/infinitetalk/data/` does not contain per-step euler perceptual metrics.**~~
+  **Fixed 2026-07-30** — committed as `results/infinitetalk/data/euler_perceptual_<cell>.csv`
+  (7 files, 2.7 MB, full per-step × per-sample × both regions, schema-identical to the sequential
+  `perceptual_t{T}_a{A}.csv`). This closed gap A in `docs/cross-model-comparison.md`, so the
+  Factorial-B diff needs no file transfer — just `git pull` on the OmniAvatar machine.
 
 ## HOW TO PROCEED (ordered)
 
@@ -180,17 +181,17 @@ unblock the OmniAvatar-side straightness measurement. Registry ids: `omni_ta_def
 refreshed `geometry_*.json` files. **Unblocks:** trusting the InfiniteTalk velocity/Δ-cosine
 panels; independent of everything else here.
 
-**(c) Gap A — InfiniteTalk's per-step euler perceptual CSVs, from the sweep machine.**
-`configs/registry.yaml` marks the 4 per-step euler-metrics entries `status: missing_sweep_machine`:
-`it_euler_on_on`, `it_euler_nocfg_on`, `it_euler_nocfg_nocfg`, `it_euler_on_nocfg` (their `csv:`
-paths — `results/infinitetalk/data/euler_{on_on,nocfg_on,nocfg_nocfg,on_nocfg}_metrics.csv` — do
-not exist yet in this repo). Only 7 files (~500 KB total) need to move off the sweep machine:
-```
-<repo>/ode_analysis_euler_jump/euler_{on_on,on_noaudio,on_nocfg,noaudio_on,noaudio_noaudio,nocfg_on,nocfg_nocfg}/perceptual_v2/metrics.csv
-```
-Full detail (why it matters — the terminal-step-only data already committed misses the step
-11–15 Sync-C peak entirely) in `docs/cross-model-comparison.md` gap A. **Unblocks:** per-step
-Factorial-B diff against OmniAvatar's `14B_textaudio_euler_*` CSVs; independent of (a) and (b).
+**(c) ~~Gap A — InfiniteTalk's per-step euler perceptual CSVs, from the sweep machine.~~ DONE 2026-07-30.**
+The 7 per-step euler-metrics CSVs (~2.7 MB total) are committed at
+`results/infinitetalk/data/euler_perceptual_{on_on,on_noaudio,on_nocfg,noaudio_on,noaudio_noaudio,nocfg_on,nocfg_nocfg}.csv`.
+`configs/registry.yaml`'s 4 per-step euler-metrics entries (`it_euler_on_on`, `it_euler_nocfg_on`,
+`it_euler_nocfg_nocfg`, `it_euler_on_nocfg`) point at the real files and no longer carry
+`status: missing_sweep_machine`; 3 more entries were added for the remaining audio-knob cells
+(`it_euler_noaudio_noaudio`, `it_euler_noaudio_on`, `it_euler_on_noaudio`, no OmniAvatar
+counterpart). Full detail (why it mattered — the terminal-step-only data previously committed
+missed the step 11–15 Sync-C peak entirely) in `docs/cross-model-comparison.md` gap A.
+**Unblocked:** per-step Factorial-B diff against OmniAvatar's `14B_textaudio_euler_*` CSVs;
+independent of (a) and (b), which remain outstanding.
 
 **(d) Task 18's Stage-1 2-step generation smoke + `--max_steps` flag.** The original brief asked
 for a 2-step `generate_omniavatar_ode_pairs_full.py` smoke test against the OmniAvatar teacher
