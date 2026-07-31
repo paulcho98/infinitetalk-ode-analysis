@@ -109,7 +109,7 @@ near-the-GT-mean early path for a more curved, detail-committing one.
 
 Figures:
 - `figures/trajectory/trajectory_geometry_overlay.png` — x0→GT cosine + per-step MSE improvement,
-  7 configs. Regenerate with `scripts/plot_trajectory_geometry_overlay.py`.
+  7 configs. Regenerate with `scripts/infinitetalk/plot_trajectory_geometry_overlay.py`.
 - per-config `gt_similarity.png` / `audio_ablation.png` / `summary.png` under `figures/per_config/`.
 
 > **Corrected in this revision.** The overlay's second panel was previously labelled

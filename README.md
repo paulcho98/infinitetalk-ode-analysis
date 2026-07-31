@@ -17,7 +17,10 @@ base + audio cross-attention). Both are analyzed with the same two-stage pipelin
    *vs step* (Stage 2b); plot both against CFG (Stage 2c).
 
 A `scripts/comparison/` stage joins the two models' per-step CSVs for a direct, CFG-normalized
-comparison — **not started yet** (directory is empty); see `docs/cross-model-comparison.md`.
+comparison: `compare_models.py` (TDD'd join) + `plot_comparison.py` (per-pair figures). **6 pairs
+are live** (2 sequential-trajectory + 4 euler-jump), producing 7 CSVs under `results/comparison/`
+(6 `comparison_<pair>.csv` + `comparison_long.csv`) and 60 figures in `results/comparison/figures/`;
+see `docs/cross-model-comparison.md`.
 
 **Full current status, per model:** `docs/status-and-todo.md` (InfiniteTalk-focused — that
 study's generation/analysis/euler-jump work is complete, one re-run pending) and
@@ -30,7 +33,7 @@ study, ported into this repo as committed CSVs + regeneration scripts).
 | Stage 2a (perceptual/lip metrics) | done, all groups | done, all 7 configs |
 | Stage 2b (latent geometry) | not computed for any OmniAvatar run in this study (no surviving latents) | done, all 7 configs — **stale**, needs a re-run (see `docs/status-and-todo.md`) |
 | Euler-jump (ODE straightness) | done, both CFG-drop modes (8 cells) | done, all 7 cells |
-| Cross-model comparison | not started (`scripts/comparison/` is empty) | — |
+| Cross-model comparison | done — 6 pairs live (2 trajectory + 4 euler), `results/comparison/` (7 CSVs, 60 figures) | — |
 
 ---
 
@@ -57,7 +60,8 @@ scripts/
                                     #   euler-jump/fresh-noise generator + launcher (+ --save_latents)
                                     #   Stage 2a/2b engines, decode/visualize/spatial-probe scripts
                                     #   4 metrics/mouthweight launchers, 10 comparison plotters
-  comparison/                      # cross-model comparison stage — EMPTY, not started
+  comparison/                      # cross-model comparison stage — compare_models.py (join) +
+                                    #   plot_comparison.py (per-pair figures); 6 pairs live
 
 data/
   recon_sample_names.txt           # the 10 Hallo3 recon sample IDs shared by both models
@@ -69,11 +73,14 @@ results/
   omniavatar/figures/               # EMPTY — no figures regenerated in this repo yet
   infinitetalk/data/, infinitetalk/figures/   # 7-config sweep CSVs, geometry + straightness JSONs, all figures
   infinitetalk/findings.md         # written analysis — start here for InfiniteTalk results
-  comparison/                      # EMPTY — cross-model comparison outputs land here
+  comparison/                      # 6 pair CSVs + comparison_long.csv + figures/ (60 PNGs) —
+                                    #   cross-model comparison outputs
 
 reference/                         # frozen originals — diff any scripts/omniavatar/* port against these
   README.md
-  omniavatar_analysis/             # original OmniAvatar repo scripts/ (8 files)
+  omniavatar_analysis/             # original OmniAvatar repo scripts/ (8 files) — retained deliberately
+                                    #   (not deleted post-port) as diff-provenance; Task 20's port
+                                    #   verification diffed against it
   fastgen_generation/               # original FastGen driver + OmniAvatarWan_model/ + fastgen_core/
 
 examples/                          # smoke-test media: InfiniteTalk generation, decoded x0 frames, 2 sample clips
@@ -116,7 +123,10 @@ the box: `WEIGHTS_ROOT=/home/work/.local/hyunbin/LipForcing-release/weights` (th
 base weights — **not** `OmniAvatar/pretrained_models`, which only holds the OmniAvatar-specific
 checkpoints). Every launcher `source`s `configs/machine.env` if present; every path constant also
 has a hardcoded fallback default and can be overridden by env var or CLI flag, so nothing breaks
-if you skip this step and just export the two or three vars you need.
+if you skip this step and just export the two or three vars you need. **Caveat:** the 8
+`scripts/infinitetalk/*.sh` launchers predate the machine.env pattern and do NOT source it — they
+carry their own EDIT-marked path blocks instead; see `docs/status-and-todo.md`'s re-point
+checklist (§ "0. Re-point paths").
 
 ---
 

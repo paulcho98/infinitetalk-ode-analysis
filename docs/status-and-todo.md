@@ -13,15 +13,15 @@ first for the five load-bearing facts, then this.
 >   Euler-jump work, which is now finished — so this is next. Stage 2b is correspondingly off by
 >   default in the Euler Stage-2 launchers (`RUN_2B=1` enables it). The perceptual CSVs are
 >   unaffected by either fix.
-> - **Step 6, the OmniAvatar cross-model comparison** — **UNBLOCKED as of 2026-07-29**, not started.
->   The OmniAvatar results are absent from the *sweep* machine but present and complete on the
->   **OmniAvatar machine** (`/home/work/.local/{ode_analysis,ode_full_trajectories}`), where they were
->   verified schema- and sample-compatible with this repo's CSVs. The Euler-jump Factorial B cells are
->   a 1:1 replication of OmniAvatar's four `14B_textaudio_euler_*` CSVs and are the natural first diff.
->   The one prerequisite transfer — the per-cell euler `metrics.csv` files, previously gitignored so
->   only terminal-step values had crossed over — **is done as of 2026-07-30** (gap A, closed).
->   **Read `docs/cross-model-comparison.md`** — machine map, inventory, the remaining gaps, and the
->   normalization caveats.
+> - **Step 6, the OmniAvatar cross-model comparison** — **DELIVERED as of 2026-07-31.**
+>   `scripts/comparison/compare_models.py` (TDD'd join) + `plot_comparison.py` (per-pair figures)
+>   are in place; `results/comparison/` holds 6 live pairs (2 sequential-trajectory + 4 euler-jump)
+>   as 7 CSVs and 60 figures. The Euler-jump Factorial B cells are a 1:1 replication of OmniAvatar's
+>   four `14B_textaudio_euler_*` CSVs. The one prerequisite transfer — the per-cell euler
+>   `metrics.csv` files, previously gitignored so only terminal-step values had crossed over — was
+>   done 2026-07-30 (gap A, closed).
+>   **Read `docs/cross-model-comparison.md`** — machine map, inventory, the remaining gaps (Stage-2b
+>   re-run staleness, no OmniAvatar straightness counterpart), and the normalization caveats.
 >
 > **Euler-jump summary:** 7 cells × 10 samples × 50 landing steps, ~12.7 h on 7×A100. Both
 > pre-flight checks passed. Curvature is created by *audio* guidance at step 0 (text contributes
@@ -66,10 +66,10 @@ first for the five load-bearing facts, then this.
   CSVs and the Euler-jump results are unaffected.
 - **Stage 2b was not run for the Euler-jump cells at all** (deliberate — `RUN_2B=1` enables it).
   It measures distance-to-GT, which is secondary to distance-to-sequential for that experiment.
-- **Cross-model comparison vs OmniAvatar** (original step 6) — not started, but no longer blocked:
-  the OmniAvatar results are on the OmniAvatar machine, and gap A (below) is now closed too — no
-  file transfer is required before the Factorial-B diff can be done at per-step granularity.
-  See `docs/cross-model-comparison.md`.
+- **Cross-model comparison vs OmniAvatar** (original step 6) — **delivered**: `scripts/comparison/`
+  (join + plots) and `results/comparison/` (6 pairs, 7 CSVs, 60 figures) exist. Remaining gaps
+  (Stage-2b re-run staleness, no OmniAvatar straightness counterpart) are unchanged by this — see
+  `docs/cross-model-comparison.md`.
 - ~~**`results/infinitetalk/data/` does not contain per-step euler perceptual metrics.**~~
   **Fixed 2026-07-30** — committed as `results/infinitetalk/data/euler_perceptual_<cell>.csv`
   (7 files, 2.7 MB, full per-step × per-sample × both regions, schema-identical to the sequential
@@ -207,6 +207,32 @@ names — `audio_proj`/`audio_cond_projs` — none unexpected), so the model-loa
 is confirmed sound independent of the teacher-checkpoint overlay. **Unblocks:** the teacher
 generation smoke and, transitively, any Stage-1 re-runs that need the LoRA+audio overlay on this
 box.
+
+## Port verification (2026-07-31)
+
+Task 20's verification pass (full detail:
+`.superpowers/sdd/2026-07-29-unified-two-model-ode-repo/task-20-report.md`, Task 19's carried
+forward: `task-19-report.md`) diffed the ported OmniAvatar-side engines against the original
+committed results on real trajectory data:
+
+1. **Vendored Wan VAE decode is bit-identical** to the `ModelManager` reference path
+   (`torch.equal` == True, max abs diff **0.0**).
+2. **The ported Stage-2a engine (`eval_ode_perceptual_v2.py`) reproduces the original
+   `14B_cfg1.0` metrics bit-exactly**: 603/603 rows matched against the original committed
+   `metrics.csv` (pixel_mse/ssim/lpips/lmd/sharpness, including GT-referenced ones — `gt.mp4` is
+   decoded from the trajectory dump's own `input_latents.pt`, so these don't depend on
+   `RECON_DATA_DIR`), max abs diff 0.0 on every metric.
+3. **The vendored 14B model loads base weights correctly**: `tests/test_omniavatar_wan_load.py`
+   constructs `OmniAvatarWan`/`WanModel` and loads the Wan2.1-T2V-14B base weights with exactly
+   the 42 expected-missing keys, all audio-module names (`audio_proj`/`audio_cond_projs`), none
+   unexpected.
+4. **SyncNet full-pipeline reproduction is deferred** — a data gap, not a port bug. The original
+   `14B_cfg1.0` run's recon GT audio (from the 512² pre-aligned clips) has been deleted from this
+   box; the substitute audio (`data/recon_clips/<hash>.wav`, the uncropped Hallo3 original) is the
+   same underlying speech but is time-offset ≈0.136 s from what the original run muxed, which is
+   enough for SyncNet's sync_c/sync_d to diverge (mean abs diff sync_c=0.32, sync_d=0.67) even
+   though the ported `compute_syncnet()`/`SyncNetDetector` code path runs end-to-end with zero
+   errors. Exact reproduction needs the restored 512² recon GT audio (HuggingFace backup).
 
 ## Known issues / watch-list
 - **Timing**: ~26 min/trajectory; the (1,1) config is 3× faster (1-pass). Plan for ~8 h/sweep.

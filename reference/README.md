@@ -6,8 +6,8 @@ are absolute; the generation half needs the full FastGen package). They are prov
 
 ## `omniavatar_analysis/` — original analysis (OmniAvatar repo `scripts/`)
 The InfiniteTalk analysis scripts derive directly from two of these:
-- `eval_ode_perceptual_v2.py`  → `../scripts/eval_ode_perceptual_v2_infinitetalk.py` (2a)
-- `analyze_ode_trajectory.py`  → `../scripts/analyze_ode_trajectory_infinitetalk.py` (2b)
+- `eval_ode_perceptual_v2.py`  → `../scripts/infinitetalk/eval_ode_perceptual_v2_infinitetalk.py` (2a)
+- `analyze_ode_trajectory.py`  → `../scripts/infinitetalk/analyze_ode_trajectory_infinitetalk.py` (2b)
 Also included for completeness / reference:
 - `eval_ode_perceptual.py` (v1 of the metric engine)
 - `decode_ode_trajectory.py` (decode-to-video; TRIVIAL to port)
@@ -20,7 +20,7 @@ dims 512→640 / latent 64→80, LatentSync-mask → dlib mouth-bbox (regions mo
 InfiniteTalk `WanVAE` for decode, and Hallo3 GT paths. See `../docs/stage2-audit.md`.
 
 ## `fastgen_generation/` — original generation (FastGen repo)
-- `generate_omniavatar_ode_pairs_full.py` — the ORIGINAL ODE driver. `../scripts/generate_infinitetalk_ode_pairs_full.py`
+- `generate_omniavatar_ode_pairs_full.py` — the ORIGINAL ODE driver. `../scripts/infinitetalk/generate_infinitetalk_ode_pairs_full.py`
   mirrors its loop structure (build shifted timesteps → save x_t → forward to x0 → CFG in x0-space →
   save x0 → re-noise). **Key cross-check:** the OmniAvatar driver gets x0 directly from
   `OmniAvatarWan.forward(..., fwd_pred_type="x0")`; InfiniteTalk has no x0 head, so our driver DERIVES

@@ -1,9 +1,12 @@
 # Cross-model comparison vs OmniAvatar (original step 6) — handoff
 
-**Status (2026-07-29): UNBLOCKED, not started.** Every doc in this repo written before this date says
-step 6 is "blocked on the OmniAvatar `ode_analysis/` results, which are not on this machine." That was
-true on the **sweep machine**. It is **not** true on the **OmniAvatar machine** — the box whose repo
-root is `/home/work/.local/OmniAvatar`, where the original study was run. All OmniAvatar results are
+**Status (2026-07-31): DELIVERED.** The join (`scripts/comparison/compare_models.py`, TDD'd) and the
+plotter (`scripts/comparison/plot_comparison.py`) are done. `results/comparison/` holds 6 live pairs
+(2 sequential-trajectory + 4 euler-jump) as 7 CSVs (6 `comparison_<pair>.csv` + `comparison_long.csv`)
+and 60 figures. Every doc in this repo written before 2026-07-29 said step 6 is "blocked on the
+OmniAvatar `ode_analysis/` results, which are not on this machine." That was true on the **sweep
+machine**. It is **not** true on the **OmniAvatar machine** — the box whose repo root is
+`/home/work/.local/OmniAvatar`, where the original study was run. All OmniAvatar results are
 there, intact, and I verified they are actually diffable against this repo's CSVs.
 
 Read this doc before doing anything on step 6. It records what exists where, what was verified, what is
@@ -82,7 +85,7 @@ never wrote `.pt` (`all_csvs/README.md` lists their trajectory dir as "—"). Co
   Nothing unexplained.
 
 So a per-step, per-sample, per-metric join is straightforward — for the sequential configs. The euler
-cells are gap A.
+cells were gap A (closed 2026-07-30 — see below).
 
 ---
 
@@ -174,10 +177,14 @@ assumption, not an equivalence — OmniAvatar's CFG is scalar, ours is 2-D.
 
 1. ~~Fetch the 7 euler `metrics.csv` files (gap A).~~ **Done — `git pull`.** They are committed as
    `results/infinitetalk/data/euler_perceptual_<cell>.csv`. Everything else for Factorial B was
-   already on the OmniAvatar machine, so **step 2 is now unblocked and can start immediately, there.**
-2. Write the diff: per-step overlays of our 4 Factorial-B cells against the 4 `14B_textaudio_euler_*.csv`,
-   normalized per model. The specific questions worth answering — does OmniAvatar also peak at a
-   mid landing step, and is its guided-origin curvature penalty the same sign and rough magnitude.
+   already on the OmniAvatar machine, so step 2 was unblocked there — and is now done (below).
+2. ~~Write the diff: per-step overlays of our 4 Factorial-B cells against the 4
+   `14B_textaudio_euler_*.csv`, normalized per model.~~ **Done 2026-07-31.**
+   `scripts/comparison/compare_models.py` (join) + `plot_comparison.py` (per-pair figures)
+   produced exactly this — see `results/comparison/comparison_euler_*.csv` and
+   `results/comparison/figures/euler_*`. Open question still worth reading off the figures: does
+   OmniAvatar also peak at a mid landing step, and is its guided-origin curvature penalty the same
+   sign and rough magnitude.
 3. Same treatment for the sequential CFG sweep: our diagonal family `(1,1) (2.5,2) (5,4) (7.5,6)` against
    OmniAvatar's scalar `1.0 / 3.0 / 4.5 / 6.0`.
 4. Decide whether the straightness number needs an OmniAvatar twin (gap C) — regenerate, or proxy, or
