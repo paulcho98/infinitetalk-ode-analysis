@@ -10,11 +10,11 @@ Y-axis selection per group:
   1. `comparability == "face_value"` -> raw `value`, annotated "(face value)" (these
      metrics, e.g. Sync-C/Sync-D, are already on a comparable absolute scale).
   2. otherwise `value_norm`, annotated "(normalized)".
-  3. EXCEPT: if `value_norm` is entirely NaN for the group (the no-CFG baseline pair's
-     GT-less metrics -- pixel_mse/ssim/lpips/lmd -- are the normalization baseline
-     themselves, so self-normalizing would be a constant 1.0 and was never computed),
-     fall back to raw `value`, annotated "(raw — baseline pair)" instead of emitting
-     a blank figure.
+  3. EXCEPT: if `value_norm` is entirely NaN for the group (the experiment declares no
+     `baseline:` -- either because it IS a no-CFG baseline itself, e.g. euler_nocfg_nocfg,
+     or because it's the nocfg_trajectory pair -- so GT-less metrics -- pixel_mse/ssim/lpips/lmd
+     -- were never normalized), fall back to raw `value`, annotated
+     "(raw — no normalization baseline)" instead of emitting a blank figure.
 
 `comparison_long.csv` (the concatenation of all pairs) is skipped -- only per-pair files
 are plotted.
@@ -61,7 +61,7 @@ def plot_pair(df, pair_name, out_dir):
         if comparability == "face_value":
             y_col, annotation = "value", "(face value)"
         elif group["value_norm"].isna().all():
-            y_col, annotation = "value", "(raw — baseline pair)"
+            y_col, annotation = "value", "(raw — no normalization baseline)"
         else:
             y_col, annotation = "value_norm", "(normalized)"
 

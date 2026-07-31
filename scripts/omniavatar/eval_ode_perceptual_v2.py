@@ -61,7 +61,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 AUDIO_BASE_DIR = os.environ.get("RECON_DATA_DIR", "/home/work/stableavatar_data/v2v_validation_data/recon")
 
 # Metrics tools paths
-METRICS_ROOT = os.environ.get("METRICS_ROOT", "/home/work/.local/latentsync-metrics-가짜")
+METRICS_ROOT = os.environ.get("METRICS_ROOT", "/home/work/.local/eval_metrics")
 SHAPE_PREDICTOR = os.path.join(METRICS_ROOT, "shape_predictor_68_face_landmarks.dat")
 SYNCNET_MODEL = os.path.join(METRICS_ROOT, "checkpoints/auxiliary/syncnet_v2.model")
 

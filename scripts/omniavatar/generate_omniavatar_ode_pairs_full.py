@@ -14,7 +14,7 @@ With 50 steps × 2 files × 10 samples = 1000 .pt files.
 Each file ≈ 2.6 MB (bf16), total ≈ 2.6 GB.
 
 Usage (single GPU):
-    CUDA_VISIBLE_DEVICES=0 python scripts/generate_omniavatar_ode_pairs_full.py \
+    CUDA_VISIBLE_DEVICES=0 python scripts/omniavatar/generate_omniavatar_ode_pairs_full.py \
         --model_size 14B --in_dim 65 \
         --base_model_paths /path/to/14B/shards.safetensors \
         --omniavatar_ckpt_path /path/to/teacher.pt \
@@ -24,7 +24,7 @@ Usage (single GPU):
         --num_inference_steps 50 --guidance_scale 4.5 --shift 5.0
 
 Usage (distributed, 4 GPUs):
-    torchrun --nproc_per_node=4 scripts/generate_omniavatar_ode_pairs_full.py \
+    torchrun --nproc_per_node=4 scripts/omniavatar/generate_omniavatar_ode_pairs_full.py \
         --model_size 14B --in_dim 65 \
         --base_model_paths /path/to/14B/shards.safetensors \
         --omniavatar_ckpt_path /path/to/teacher.pt \

@@ -22,17 +22,18 @@ metric_rules:      # cross-model comparability
   noise_floor: diagnostic_only         # spatial_probe family only; not present in InfiniteTalk data
 experiments:
   # `baseline:` = per-step normalizer for metrics that have no GT self-row (pixel_mse/ssim/lpips/lmd,
-  # which are distances *to* GT). Only set on the two live comparison pairs; see compare_models.py.
+  # which are distances *to* GT). Set on every live comparison pair except the two nocfg_nocfg
+  # experiments (they ARE the baselines); see compare_models.py.
   # --- OmniAvatar, text+audio CFG drop mode ---
   - {id: omni_ta_default,        model: omniavatar, family: trajectory,  guidance: {cfg: 4.5}, drop: text+audio, baseline: omni_ta_nocfg, csv: results/omniavatar/data/14B_textaudio_perceptual_v2.csv}
   - {id: omni_ta_nocfg,          model: omniavatar, family: trajectory,  guidance: {cfg: 1.0}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_trajectory_nocfg.csv}
   - {id: omni_ta_cfg1.0,         model: omniavatar, family: trajectory,  guidance: {cfg: 1.0}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_cfg1.0_trajectory.csv}
   - {id: omni_ta_cfg3.0,         model: omniavatar, family: trajectory,  guidance: {cfg: 3.0}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_cfg3.0_trajectory.csv}
   - {id: omni_ta_cfg6.0,         model: omniavatar, family: trajectory,  guidance: {cfg: 6.0}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_cfg6.0_trajectory.csv}
-  - {id: omni_ta_euler_on_on,    model: omniavatar, family: euler_jump,  knobs: {step0: cfg45, teacher: cfg45}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_euler_cfg45_cfg45.csv}
-  - {id: omni_ta_euler_nocfg_on, model: omniavatar, family: euler_jump,  knobs: {step0: nocfg, teacher: cfg45}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_euler_nocfg_cfg45.csv}
+  - {id: omni_ta_euler_on_on,    model: omniavatar, family: euler_jump,  knobs: {step0: cfg45, teacher: cfg45}, drop: text+audio, baseline: omni_ta_euler_nocfg_nocfg, csv: results/omniavatar/data/14B_textaudio_euler_cfg45_cfg45.csv}
+  - {id: omni_ta_euler_nocfg_on, model: omniavatar, family: euler_jump,  knobs: {step0: nocfg, teacher: cfg45}, drop: text+audio, baseline: omni_ta_euler_nocfg_nocfg, csv: results/omniavatar/data/14B_textaudio_euler_nocfg_cfg45.csv}
   - {id: omni_ta_euler_nocfg_nocfg, model: omniavatar, family: euler_jump, knobs: {step0: nocfg, teacher: nocfg}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_euler_nocfg_nocfg.csv}
-  - {id: omni_ta_euler_on_nocfg, model: omniavatar, family: euler_jump,  knobs: {step0: cfg45, teacher: nocfg}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_euler_cfg45_nocfg.csv}
+  - {id: omni_ta_euler_on_nocfg, model: omniavatar, family: euler_jump,  knobs: {step0: cfg45, teacher: nocfg}, drop: text+audio, baseline: omni_ta_euler_nocfg_nocfg, csv: results/omniavatar/data/14B_textaudio_euler_cfg45_nocfg.csv}
   - {id: omni_ta_fresh_noise,    model: omniavatar, family: fresh_noise, guidance: {cfg: 4.5}, drop: text+audio, csv: results/omniavatar/data/14B_textaudio_fresh_noise.csv}
   - {id: omni_ta_schedule25,     model: omniavatar, family: scheduled_cfg, knobs: {tau: 25},   drop: text+audio, csv: results/omniavatar/data/14B_textaudio_schedule25.csv}
   # --- OmniAvatar, audio-only CFG drop mode (same 7 shapes) ---
@@ -63,10 +64,10 @@ experiments:
   - {id: it_t5.0_a6.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 6.0}, csv: results/infinitetalk/data/perceptual_t5.0_a6.0.csv}
   - {id: it_t7.5_a6.0,           model: infinitetalk, family: trajectory, guidance: {text: 7.5, audio: 6.0}, csv: results/infinitetalk/data/perceptual_t7.5_a6.0.csv}
   # InfiniteTalk per-step euler CSVs: GAP A closed 2026-07-30 — committed at results/infinitetalk/data/
-  - {id: it_euler_on_on,         model: infinitetalk, family: euler_jump, knobs: {step0: on, teacher: on},       csv: results/infinitetalk/data/euler_perceptual_on_on.csv}
-  - {id: it_euler_nocfg_on,      model: infinitetalk, family: euler_jump, knobs: {step0: nocfg, teacher: on},    csv: results/infinitetalk/data/euler_perceptual_nocfg_on.csv}
+  - {id: it_euler_on_on,         model: infinitetalk, family: euler_jump, knobs: {step0: on, teacher: on},       baseline: it_euler_nocfg_nocfg, csv: results/infinitetalk/data/euler_perceptual_on_on.csv}
+  - {id: it_euler_nocfg_on,      model: infinitetalk, family: euler_jump, knobs: {step0: nocfg, teacher: on},    baseline: it_euler_nocfg_nocfg, csv: results/infinitetalk/data/euler_perceptual_nocfg_on.csv}
   - {id: it_euler_nocfg_nocfg,   model: infinitetalk, family: euler_jump, knobs: {step0: nocfg, teacher: nocfg}, csv: results/infinitetalk/data/euler_perceptual_nocfg_nocfg.csv}
-  - {id: it_euler_on_nocfg,      model: infinitetalk, family: euler_jump, knobs: {step0: on, teacher: nocfg},    csv: results/infinitetalk/data/euler_perceptual_on_nocfg.csv}
+  - {id: it_euler_on_nocfg,      model: infinitetalk, family: euler_jump, knobs: {step0: on, teacher: nocfg},    baseline: it_euler_nocfg_nocfg, csv: results/infinitetalk/data/euler_perceptual_on_nocfg.csv}
   # InfiniteTalk audio-knob euler cells: no OmniAvatar counterpart (gap D) — no comparisons: pairing
   - {id: it_euler_noaudio_noaudio, model: infinitetalk, family: euler_jump, knobs: {step0: noaudio, teacher: noaudio}, csv: results/infinitetalk/data/euler_perceptual_noaudio_noaudio.csv}
   - {id: it_euler_noaudio_on,      model: infinitetalk, family: euler_jump, knobs: {step0: noaudio, teacher: on},      csv: results/infinitetalk/data/euler_perceptual_noaudio_on.csv}
