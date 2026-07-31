@@ -62,11 +62,15 @@ experiments:
   - {id: it_t5.0_a4.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 4.0}, baseline: it_t1.0_a1.0, csv: results/infinitetalk/data/perceptual_t5.0_a4.0.csv}
   - {id: it_t5.0_a6.0,           model: infinitetalk, family: trajectory, guidance: {text: 5.0, audio: 6.0}, csv: results/infinitetalk/data/perceptual_t5.0_a6.0.csv}
   - {id: it_t7.5_a6.0,           model: infinitetalk, family: trajectory, guidance: {text: 7.5, audio: 6.0}, csv: results/infinitetalk/data/perceptual_t7.5_a6.0.csv}
-  # InfiniteTalk per-step euler CSVs: GAP A — on the sweep machine, not yet committed
-  - {id: it_euler_on_on,         model: infinitetalk, family: euler_jump, knobs: {step0: on, teacher: on},       csv: results/infinitetalk/data/euler_on_on_metrics.csv, status: missing_sweep_machine}
-  - {id: it_euler_nocfg_on,      model: infinitetalk, family: euler_jump, knobs: {step0: nocfg, teacher: on},    csv: results/infinitetalk/data/euler_nocfg_on_metrics.csv, status: missing_sweep_machine}
-  - {id: it_euler_nocfg_nocfg,   model: infinitetalk, family: euler_jump, knobs: {step0: nocfg, teacher: nocfg}, csv: results/infinitetalk/data/euler_nocfg_nocfg_metrics.csv, status: missing_sweep_machine}
-  - {id: it_euler_on_nocfg,      model: infinitetalk, family: euler_jump, knobs: {step0: on, teacher: nocfg},    csv: results/infinitetalk/data/euler_on_nocfg_metrics.csv, status: missing_sweep_machine}
+  # InfiniteTalk per-step euler CSVs: GAP A closed 2026-07-30 — committed at results/infinitetalk/data/
+  - {id: it_euler_on_on,         model: infinitetalk, family: euler_jump, knobs: {step0: on, teacher: on},       csv: results/infinitetalk/data/euler_perceptual_on_on.csv}
+  - {id: it_euler_nocfg_on,      model: infinitetalk, family: euler_jump, knobs: {step0: nocfg, teacher: on},    csv: results/infinitetalk/data/euler_perceptual_nocfg_on.csv}
+  - {id: it_euler_nocfg_nocfg,   model: infinitetalk, family: euler_jump, knobs: {step0: nocfg, teacher: nocfg}, csv: results/infinitetalk/data/euler_perceptual_nocfg_nocfg.csv}
+  - {id: it_euler_on_nocfg,      model: infinitetalk, family: euler_jump, knobs: {step0: on, teacher: nocfg},    csv: results/infinitetalk/data/euler_perceptual_on_nocfg.csv}
+  # InfiniteTalk audio-knob euler cells: no OmniAvatar counterpart (gap D) — no comparisons: pairing
+  - {id: it_euler_noaudio_noaudio, model: infinitetalk, family: euler_jump, knobs: {step0: noaudio, teacher: noaudio}, csv: results/infinitetalk/data/euler_perceptual_noaudio_noaudio.csv}
+  - {id: it_euler_noaudio_on,      model: infinitetalk, family: euler_jump, knobs: {step0: noaudio, teacher: on},      csv: results/infinitetalk/data/euler_perceptual_noaudio_on.csv}
+  - {id: it_euler_on_noaudio,      model: infinitetalk, family: euler_jump, knobs: {step0: on, teacher: noaudio},      csv: results/infinitetalk/data/euler_perceptual_on_noaudio.csv}
 comparisons:   # cross-model pairs; assumption on=(t5,a4) <-> cfg4.5 carried here, not hardcoded in code
   - {name: default_trajectory, omniavatar: omni_ta_default, infinitetalk: it_t5.0_a4.0}
   - {name: nocfg_trajectory,   omniavatar: omni_ta_nocfg,   infinitetalk: it_t1.0_a1.0}
